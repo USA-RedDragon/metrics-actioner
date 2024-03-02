@@ -71,6 +71,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+//nolint:golint,gocyclo
 func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	var config Config
 
