@@ -40,15 +40,24 @@ var (
 	MetricsPortKey     = "metrics.port"
 )
 
+const (
+	DefaultHTTPHostIPV4    = "0.0.0.0"
+	DefaultHTTPHostIPV6    = "::"
+	DefaultHTTPPort        = 8080
+	DefaultMetricsHostIPV4 = "127.0.0.1"
+	DefaultMetricsHostIPV6 = "::1"
+	DefaultMetricsPort     = 8081
+)
+
 func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ConfigFileKey, "c", "", "Config file path")
-	cmd.Flags().String(HTTPHostIPV4Key, "0.0.0.0", "HTTP server IPv4 host")
-	cmd.Flags().String(HTTPHostIPV6Key, "::", "HTTP server IPv6 host")
-	cmd.Flags().Uint16(HTTPPortKey, 8080, "HTTP server port")
+	cmd.Flags().String(HTTPHostIPV4Key, DefaultHTTPHostIPV4, "HTTP server IPv4 host")
+	cmd.Flags().String(HTTPHostIPV6Key, DefaultHTTPHostIPV6, "HTTP server IPv6 host")
+	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
 	cmd.Flags().Bool(MetricsEnabledKey, false, "Enable metrics server")
-	cmd.Flags().String(MetricsHostIPV4Key, "127.0.0.1", "Metrics server IPv4 host")
-	cmd.Flags().String(MetricsHostIPV6Key, "::1", "Metrics server IPv6 host")
-	cmd.Flags().Uint16(MetricsPortKey, 8081, "Metrics server port")
+	cmd.Flags().String(MetricsHostIPV4Key, DefaultMetricsHostIPV4, "Metrics server IPv4 host")
+	cmd.Flags().String(MetricsHostIPV6Key, DefaultMetricsHostIPV6, "Metrics server IPv6 host")
+	cmd.Flags().Uint16(MetricsPortKey, DefaultMetricsPort, "Metrics server port")
 }
 
 func (c *Config) Validate() error {
@@ -64,7 +73,7 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		if ctx.Err() != nil {
 			return
 		}
-		optName := strings.ReplaceAll(strings.ToUpper(f.Name), "-", "_")
+		optName := strings.ReplaceAll(strings.ToUpper(f.Name), ".", "__")
 		if val, ok := os.LookupEnv(optName); !f.Changed && ok {
 			if err := f.Value.Set(val); err != nil {
 				cancel(err)
@@ -139,6 +148,26 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics port: %w", err)
 		}
+	}
+
+	// Defaults
+	if config.HTTP.IPV4Host == "" {
+		config.HTTP.IPV4Host = DefaultHTTPHostIPV4
+	}
+	if config.HTTP.IPV6Host == "" {
+		config.HTTP.IPV6Host = DefaultHTTPHostIPV6
+	}
+	if config.HTTP.Port == 0 {
+		config.HTTP.Port = DefaultHTTPPort
+	}
+	if config.Metrics.IPV4Host == "" {
+		config.Metrics.IPV4Host = DefaultMetricsHostIPV4
+	}
+	if config.Metrics.IPV6Host == "" {
+		config.Metrics.IPV6Host = DefaultMetricsHostIPV6
+	}
+	if config.Metrics.Port == 0 {
+		config.Metrics.Port = DefaultMetricsPort
 	}
 
 	err = config.Validate()
