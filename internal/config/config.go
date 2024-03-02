@@ -46,40 +46,40 @@ type Config struct {
 //nolint:golint,gochecknoglobals
 var (
 	ConfigFileKey          = "config"
-	HTTPHostIPV4Key        = "http.host_ipv4"
-	HTTPHostIPV6Key        = "http.host_ipv6"
+	HTTPIPV4HostKey        = "http.ipv4_host"
+	HTTPIPV6HostKey        = "http.ipv6_host"
 	HTTPPortKey            = "http.port"
 	HTTPTracingEnabledKey  = "http.tracing.enabled"
 	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
 	HTTPPProfEnabledKey    = "http.pprof.enabled"
 	HTTPTrustedProxiesKey  = "http.trusted_proxies"
 	HTTPMetricsEnabledKey  = "http.metrics.enabled"
-	HTTPMetricsHostIPV4Key = "http.metrics.host_ipv4"
-	HTTPMetricsHostIPV6Key = "http.metrics.host_ipv6"
+	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
 	HTTPMetricsPortKey     = "http.metrics.port"
 )
 
 const (
-	DefaultHTTPHostIPV4        = "0.0.0.0"
-	DefaultHTTPHostIPV6        = "::"
+	DefaultHTTPIPV4Host        = "0.0.0.0"
+	DefaultHTTPIPV6Host        = "::"
 	DefaultHTTPPort            = 8080
-	DefaultHTTPMetricsHostIPV4 = "127.0.0.1"
-	DefaultHTTPMetricsHostIPV6 = "::1"
+	DefaultHTTPMetricsIPV4Host = "127.0.0.1"
+	DefaultHTTPMetricsIPV6Host = "::1"
 	DefaultHTTPMetricsPort     = 8081
 )
 
 func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(ConfigFileKey, "c", "", "Config file path")
-	cmd.Flags().String(HTTPHostIPV4Key, DefaultHTTPHostIPV4, "HTTP server IPv4 host")
-	cmd.Flags().String(HTTPHostIPV6Key, DefaultHTTPHostIPV6, "HTTP server IPv6 host")
+	cmd.Flags().String(HTTPIPV4HostKey, DefaultHTTPIPV4Host, "HTTP server IPv4 host")
+	cmd.Flags().String(HTTPIPV6HostKey, DefaultHTTPIPV6Host, "HTTP server IPv6 host")
 	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
 	cmd.Flags().Bool(HTTPTracingEnabledKey, false, "Enable Open Telemetry tracing")
 	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
 	cmd.Flags().Bool(HTTPPProfEnabledKey, false, "Enable pprof")
 	cmd.Flags().StringSlice(HTTPTrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
 	cmd.Flags().Bool(HTTPMetricsEnabledKey, false, "Enable metrics server")
-	cmd.Flags().String(HTTPMetricsHostIPV4Key, DefaultHTTPMetricsHostIPV4, "Metrics server IPv4 host")
-	cmd.Flags().String(HTTPMetricsHostIPV6Key, DefaultHTTPMetricsHostIPV6, "Metrics server IPv6 host")
+	cmd.Flags().String(HTTPMetricsIPV4HostKey, DefaultHTTPMetricsIPV4Host, "Metrics server IPv4 host")
+	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 }
 
@@ -125,15 +125,15 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 
 	// Flag overrides here
-	if cmd.Flags().Changed(HTTPHostIPV4Key) {
-		config.HTTP.IPV4Host, err = cmd.Flags().GetString(HTTPHostIPV4Key)
+	if cmd.Flags().Changed(HTTPIPV4HostKey) {
+		config.HTTP.IPV4Host, err = cmd.Flags().GetString(HTTPIPV4HostKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get HTTP IPv4 host: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(HTTPHostIPV6Key) {
-		config.HTTP.IPV6Host, err = cmd.Flags().GetString(HTTPHostIPV6Key)
+	if cmd.Flags().Changed(HTTPIPV6HostKey) {
+		config.HTTP.IPV6Host, err = cmd.Flags().GetString(HTTPIPV6HostKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get HTTP IPv6 host: %w", err)
 		}
@@ -167,15 +167,15 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		}
 	}
 
-	if cmd.Flags().Changed(HTTPMetricsHostIPV4Key) {
-		config.HTTP.Metrics.IPV4Host, err = cmd.Flags().GetString(HTTPMetricsHostIPV4Key)
+	if cmd.Flags().Changed(HTTPMetricsIPV4HostKey) {
+		config.HTTP.Metrics.IPV4Host, err = cmd.Flags().GetString(HTTPMetricsIPV4HostKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics IPv4 host: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(HTTPMetricsHostIPV6Key) {
-		config.HTTP.Metrics.IPV6Host, err = cmd.Flags().GetString(HTTPMetricsHostIPV6Key)
+	if cmd.Flags().Changed(HTTPMetricsIPV6HostKey) {
+		config.HTTP.Metrics.IPV6Host, err = cmd.Flags().GetString(HTTPMetricsIPV6HostKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics IPv6 host: %w", err)
 		}
@@ -204,19 +204,19 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 
 	// Defaults
 	if config.HTTP.IPV4Host == "" {
-		config.HTTP.IPV4Host = DefaultHTTPHostIPV4
+		config.HTTP.IPV4Host = DefaultHTTPIPV4Host
 	}
 	if config.HTTP.IPV6Host == "" {
-		config.HTTP.IPV6Host = DefaultHTTPHostIPV6
+		config.HTTP.IPV6Host = DefaultHTTPIPV6Host
 	}
 	if config.HTTP.Port == 0 {
 		config.HTTP.Port = DefaultHTTPPort
 	}
 	if config.HTTP.Metrics.IPV4Host == "" {
-		config.HTTP.Metrics.IPV4Host = DefaultHTTPMetricsHostIPV4
+		config.HTTP.Metrics.IPV4Host = DefaultHTTPMetricsIPV4Host
 	}
 	if config.HTTP.Metrics.IPV6Host == "" {
-		config.HTTP.Metrics.IPV6Host = DefaultHTTPMetricsHostIPV6
+		config.HTTP.Metrics.IPV6Host = DefaultHTTPMetricsIPV6Host
 	}
 	if config.HTTP.Metrics.Port == 0 {
 		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
