@@ -6,6 +6,8 @@ http:
   tracing:
     enabled: false
     otlp_endpoint: ''
+  pprof:
+    enabled: false
 
 metrics:
   enabled: false

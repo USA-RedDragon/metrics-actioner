@@ -22,9 +22,14 @@ type Tracing struct {
 	OTLPEndpoint string `json:"otlp_endpoint"`
 }
 
+type PProf struct {
+	Enabled bool `json:"enabled"`
+}
+
 type HTTP struct {
 	HTTPListener
 	Tracing
+	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies"`
 }
 
@@ -47,7 +52,8 @@ var (
 	HTTPPortKey           = "http.port"
 	HTTPTracingEnabledKey = "http.tracing.enabled"
 	HTTPTracingOTLPEndKey = "http.tracing.otlp_endpoint"
-	TrustedProxiesKey     = "http.trusted_proxies"
+	HTTPPProfEnabledKey   = "http.pprof.enabled"
+	HTTPTrustedProxiesKey = "http.trusted_proxies"
 	MetricsEnabledKey     = "metrics.enabled"
 	MetricsHostIPV4Key    = "metrics.host_ipv4"
 	MetricsHostIPV6Key    = "metrics.host_ipv6"
@@ -70,7 +76,8 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
 	cmd.Flags().Bool(HTTPTracingEnabledKey, false, "Enable Open Telemetry tracing")
 	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
-	cmd.Flags().StringSlice(TrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
+	cmd.Flags().Bool(HTTPPProfEnabledKey, false, "Enable pprof")
+	cmd.Flags().StringSlice(HTTPTrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
 	cmd.Flags().Bool(MetricsEnabledKey, false, "Enable metrics server")
 	cmd.Flags().String(MetricsHostIPV4Key, DefaultMetricsHostIPV4, "Metrics server IPv4 host")
 	cmd.Flags().String(MetricsHostIPV6Key, DefaultMetricsHostIPV6, "Metrics server IPv6 host")
@@ -140,8 +147,15 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		}
 	}
 
-	if cmd.Flags().Changed(TrustedProxiesKey) {
-		config.HTTP.TrustedProxies, err = cmd.Flags().GetStringSlice(TrustedProxiesKey)
+	if cmd.Flags().Changed(HTTPPProfEnabledKey) {
+		config.HTTP.PProf.Enabled, err = cmd.Flags().GetBool(HTTPPProfEnabledKey)
+		if err != nil {
+			return &config, fmt.Errorf("failed to get pprof enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(HTTPTrustedProxiesKey) {
+		config.HTTP.TrustedProxies, err = cmd.Flags().GetStringSlice(HTTPTrustedProxiesKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get trusted proxies: %w", err)
 		}

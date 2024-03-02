@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
@@ -20,7 +21,21 @@ type Server struct {
 }
 
 func NewServer(config *config.HTTP) *Server {
+	gin.SetMode(gin.ReleaseMode)
+	if config.PProf.Enabled {
+		gin.SetMode(gin.DebugMode)
+	}
+
 	r := gin.New()
+
+	if config.PProf.Enabled {
+		pprof.Register(r)
+	}
+
+	writeTimeout := 5 * time.Second
+	if config.PProf.Enabled {
+		writeTimeout = 60 * time.Second
+	}
 
 	applyMiddleware(r, config)
 	applyRoutes(r)
@@ -29,11 +44,13 @@ func NewServer(config *config.HTTP) *Server {
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      writeTimeout,
 			Handler:           r,
 		},
 		ipv6Server: &http.Server{
 			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			WriteTimeout:      writeTimeout,
 			Handler:           r,
 		},
 		config: config,
