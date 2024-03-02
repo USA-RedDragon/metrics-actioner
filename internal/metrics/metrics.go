@@ -19,7 +19,7 @@ type Server struct {
 	config     *config.Metrics
 }
 
-func NewServer(config config.Metrics) *Server {
+func NewServer(config *config.Metrics) *Server {
 	return &Server{
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
@@ -29,7 +29,7 @@ func NewServer(config config.Metrics) *Server {
 			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
 		},
-		config: &config,
+		config: config,
 	}
 }
 

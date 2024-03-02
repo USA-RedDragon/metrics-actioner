@@ -3,6 +3,9 @@ http:
   ipv6_host: '::' # all interfaces
   port: 8080
   trusted_proxies: []
+  tracing:
+    enabled: false
+    otlp_endpoint: ''
 
 metrics:
   enabled: false

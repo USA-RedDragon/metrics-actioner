@@ -19,30 +19,28 @@ type Server struct {
 	config     *config.HTTP
 }
 
-func NewServer(config config.HTTP) *Server {
+func NewServer(config *config.HTTP) *Server {
+	r := gin.New()
+
+	applyMiddleware(r, config)
+	applyRoutes(r)
+
 	return &Server{
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			Handler:           r,
 		},
 		ipv6Server: &http.Server{
 			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			Handler:           r,
 		},
-		config: &config,
+		config: config,
 	}
 }
 
 func (s *Server) Start() {
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.Use(gin.Logger())
-	err := r.SetTrustedProxies(s.config.TrustedProxies)
-	if err != nil {
-		slog.Error("Failed to set trusted proxies", "error", err.Error())
-	}
-	applyRoutes(r)
-
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
 		return s.ipv4Server.ListenAndServe()
@@ -54,7 +52,7 @@ func (s *Server) Start() {
 
 	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
 
-	err = errGrp.Wait()
+	err := errGrp.Wait()
 	if err != nil && !s.stopped {
 		slog.Error("HTTP server error", "error", err.Error())
 	}

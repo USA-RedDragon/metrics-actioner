@@ -46,12 +46,12 @@ func run(cmd *cobra.Command, _ []string) error {
 	var metricsServer *metrics.Server
 	if config.Metrics.Enabled {
 		slog.Info("Starting metrics server")
-		metricsServer = metrics.NewServer(config.Metrics)
+		metricsServer = metrics.NewServer(&config.Metrics)
 		go metricsServer.Start()
 	}
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config.HTTP)
+	server := server.NewServer(&config.HTTP)
 	go server.Start()
 
 	stop := func(sig os.Signal) {

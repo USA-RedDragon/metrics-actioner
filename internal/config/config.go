@@ -17,8 +17,14 @@ type HTTPListener struct {
 	Port     uint16 `json:"port"`
 }
 
+type Tracing struct {
+	Enabled      bool   `json:"enabled"`
+	OTLPEndpoint string `json:"otlp_endpoint"`
+}
+
 type HTTP struct {
 	HTTPListener
+	Tracing
 	TrustedProxies []string `json:"trusted_proxies"`
 }
 
@@ -35,15 +41,17 @@ type Config struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey      = "config"
-	HTTPHostIPV4Key    = "http.host_ipv4"
-	HTTPHostIPV6Key    = "http.host_ipv6"
-	HTTPPortKey        = "http.port"
-	TrustedProxiesKey  = "http.trusted_proxies"
-	MetricsEnabledKey  = "metrics.enabled"
-	MetricsHostIPV4Key = "metrics.host_ipv4"
-	MetricsHostIPV6Key = "metrics.host_ipv6"
-	MetricsPortKey     = "metrics.port"
+	ConfigFileKey         = "config"
+	HTTPHostIPV4Key       = "http.host_ipv4"
+	HTTPHostIPV6Key       = "http.host_ipv6"
+	HTTPPortKey           = "http.port"
+	HTTPTracingEnabledKey = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey = "http.tracing.otlp_endpoint"
+	TrustedProxiesKey     = "http.trusted_proxies"
+	MetricsEnabledKey     = "metrics.enabled"
+	MetricsHostIPV4Key    = "metrics.host_ipv4"
+	MetricsHostIPV6Key    = "metrics.host_ipv6"
+	MetricsPortKey        = "metrics.port"
 )
 
 const (
@@ -60,6 +68,8 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPHostIPV4Key, DefaultHTTPHostIPV4, "HTTP server IPv4 host")
 	cmd.Flags().String(HTTPHostIPV6Key, DefaultHTTPHostIPV6, "HTTP server IPv6 host")
 	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
+	cmd.Flags().Bool(HTTPTracingEnabledKey, false, "Enable Open Telemetry tracing")
+	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
 	cmd.Flags().StringSlice(TrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
 	cmd.Flags().Bool(MetricsEnabledKey, false, "Enable metrics server")
 	cmd.Flags().String(MetricsHostIPV4Key, DefaultMetricsHostIPV4, "Metrics server IPv4 host")
@@ -162,6 +172,20 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		config.Metrics.Port, err = cmd.Flags().GetUint16(MetricsPortKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics port: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(HTTPTracingEnabledKey) {
+		config.HTTP.Tracing.Enabled, err = cmd.Flags().GetBool(HTTPTracingEnabledKey)
+		if err != nil {
+			return &config, fmt.Errorf("failed to get tracing enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(HTTPTracingOTLPEndKey) {
+		config.HTTP.Tracing.OTLPEndpoint, err = cmd.Flags().GetString(HTTPTracingOTLPEndKey)
+		if err != nil {
+			return &config, fmt.Errorf("failed to get tracing OTLP endpoint: %w", err)
 		}
 	}
 
