@@ -1,4 +1,4 @@
-package metrics
+package server
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -16,10 +16,10 @@ type Server struct {
 	ipv4Server *http.Server
 	ipv6Server *http.Server
 	stopped    bool
-	config     *config.ConfigMetrics
+	config     *config.ConfigHTTP
 }
 
-func NewServer(config config.ConfigMetrics) *Server {
+func NewServer(config config.ConfigHTTP) *Server {
 	return &Server{
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
@@ -34,7 +34,10 @@ func NewServer(config config.ConfigMetrics) *Server {
 }
 
 func (s *Server) Start() {
-	http.Handle("/metrics", promhttp.Handler())
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(gin.Logger())
+	applyRoutes(r)
 
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
@@ -45,11 +48,11 @@ func (s *Server) Start() {
 		return s.ipv6Server.ListenAndServe()
 	})
 
-	slog.Info("Metrics server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
+	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
 
 	err := errGrp.Wait()
 	if err != nil && !s.stopped {
-		slog.Error("Metrics server error", "error", err.Error())
+		slog.Error("HTTP server error", "error", err.Error())
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/USA-RedDragon/metrics-actioner/internal/metrics"
+	"github.com/USA-RedDragon/metrics-actioner/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
 	"golang.org/x/sync/errgroup"
@@ -42,19 +43,31 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	var metricsServer *metrics.Server
 	if config.Metrics.Enabled {
 		slog.Info("Starting metrics server")
-		go metrics.CreateServer(config.Metrics)
+		metricsServer = metrics.NewServer(config.Metrics)
+		go metricsServer.Start()
 	}
+
+	slog.Info("Starting HTTP server")
+	server := server.NewServer(config.HTTP)
+	go server.Start()
 
 	stop := func(sig os.Signal) {
 		slog.Info("Shutting down")
 
 		errGrp := errgroup.Group{}
 
-		if config.Metrics.Enabled {
+		if config.Metrics.Enabled && metricsServer != nil {
 			errGrp.Go(func() error {
-				return metrics.Shutdown()
+				return metricsServer.Stop()
+			})
+		}
+
+		if server != nil {
+			errGrp.Go(func() error {
+				return server.Stop()
 			})
 		}
 
