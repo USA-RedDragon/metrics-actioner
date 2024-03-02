@@ -11,21 +11,26 @@ import (
 	"github.com/spf13/pflag"
 )
 
-type ConfigHTTP struct {
+type HTTPListener struct {
 	IPV4Host string `json:"ipv4_host"`
 	IPV6Host string `json:"ipv6_host"`
 	Port     uint16 `json:"port"`
 }
 
-type ConfigMetrics struct {
-	ConfigHTTP
+type HTTP struct {
+	HTTPListener
+	TrustedProxies []string `json:"trusted_proxies"`
+}
+
+type Metrics struct {
+	HTTPListener
 	Enabled bool `json:"enabled"`
 }
 
 // Config is the main configuration for the application
 type Config struct {
-	HTTP    ConfigHTTP    `json:"http"`
-	Metrics ConfigMetrics `json:"metrics"`
+	HTTP    HTTP    `json:"http"`
+	Metrics Metrics `json:"metrics"`
 }
 
 //nolint:golint,gochecknoglobals
@@ -34,6 +39,7 @@ var (
 	HTTPHostIPV4Key    = "http.host_ipv4"
 	HTTPHostIPV6Key    = "http.host_ipv6"
 	HTTPPortKey        = "http.port"
+	TrustedProxiesKey  = "http.trusted_proxies"
 	MetricsEnabledKey  = "metrics.enabled"
 	MetricsHostIPV4Key = "metrics.host_ipv4"
 	MetricsHostIPV6Key = "metrics.host_ipv6"
@@ -54,6 +60,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPHostIPV4Key, DefaultHTTPHostIPV4, "HTTP server IPv4 host")
 	cmd.Flags().String(HTTPHostIPV6Key, DefaultHTTPHostIPV6, "HTTP server IPv6 host")
 	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
+	cmd.Flags().StringSlice(TrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
 	cmd.Flags().Bool(MetricsEnabledKey, false, "Enable metrics server")
 	cmd.Flags().String(MetricsHostIPV4Key, DefaultMetricsHostIPV4, "Metrics server IPv4 host")
 	cmd.Flags().String(MetricsHostIPV6Key, DefaultMetricsHostIPV6, "Metrics server IPv6 host")
@@ -119,6 +126,13 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		config.HTTP.Port, err = cmd.Flags().GetUint16(HTTPPortKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get HTTP port: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(TrustedProxiesKey) {
+		config.HTTP.TrustedProxies, err = cmd.Flags().GetStringSlice(TrustedProxiesKey)
+		if err != nil {
+			return &config, fmt.Errorf("failed to get trusted proxies: %w", err)
 		}
 	}
 

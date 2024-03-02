@@ -16,10 +16,10 @@ type Server struct {
 	ipv4Server *http.Server
 	ipv6Server *http.Server
 	stopped    bool
-	config     *config.ConfigMetrics
+	config     *config.Metrics
 }
 
-func NewServer(config config.ConfigMetrics) *Server {
+func NewServer(config config.Metrics) *Server {
 	return &Server{
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),

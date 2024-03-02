@@ -16,10 +16,10 @@ type Server struct {
 	ipv4Server *http.Server
 	ipv6Server *http.Server
 	stopped    bool
-	config     *config.ConfigHTTP
+	config     *config.HTTP
 }
 
-func NewServer(config config.ConfigHTTP) *Server {
+func NewServer(config config.HTTP) *Server {
 	return &Server{
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
@@ -37,6 +37,10 @@ func (s *Server) Start() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
+	err := r.SetTrustedProxies(s.config.TrustedProxies)
+	if err != nil {
+		slog.Error("Failed to set trusted proxies", "error", err.Error())
+	}
 	applyRoutes(r)
 
 	errGrp := errgroup.Group{}
@@ -50,7 +54,7 @@ func (s *Server) Start() {
 
 	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
 
-	err := errGrp.Wait()
+	err = errGrp.Wait()
 	if err != nil && !s.stopped {
 		slog.Error("HTTP server error", "error", err.Error())
 	}
