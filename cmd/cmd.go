@@ -8,8 +8,10 @@ import (
 	"syscall"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
+	"github.com/USA-RedDragon/metrics-actioner/internal/metrics"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -35,13 +37,32 @@ func NewCommand(version, commit string) *cobra.Command {
 func run(cmd *cobra.Command, _ []string) error {
 	slog.Info("Metrics Actioner", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
-	_, err := config.LoadConfig(cmd)
+	config, err := config.LoadConfig(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	if config.Metrics.Enabled {
+		slog.Info("Starting metrics server")
+		go metrics.CreateServer(config.Metrics)
+	}
+
 	stop := func(sig os.Signal) {
 		slog.Info("Shutting down")
+
+		errGrp := errgroup.Group{}
+
+		if config.Metrics.Enabled {
+			errGrp.Go(func() error {
+				return metrics.Shutdown()
+			})
+		}
+
+		err := errGrp.Wait()
+		if err != nil {
+			slog.Error("Shutdown error", "error", err.Error())
+			os.Exit(1)
+		}
 		slog.Info("Shutdown complete")
 	}
 
