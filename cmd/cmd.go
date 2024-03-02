@@ -1,0 +1,52 @@
+package cmd
+
+import (
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"syscall"
+
+	"github.com/USA-RedDragon/metrics-actioner/internal/config"
+	"github.com/spf13/cobra"
+	"github.com/ztrue/shutdown"
+)
+
+var (
+	ErrMissingConfig = errors.New("missing configuration")
+)
+
+func NewCommand(version, commit string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "metrics-actioner",
+		Version: fmt.Sprintf("%s - %s", version, commit),
+		Annotations: map[string]string{
+			"version": version,
+			"commit":  commit,
+		},
+		RunE:          run,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+	config.RegisterFlags(cmd)
+	return cmd
+}
+
+func run(cmd *cobra.Command, _ []string) error {
+	slog.Info("Metrics Actioner", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
+
+	_, err := config.LoadConfig(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	stop := func(sig os.Signal) {
+		slog.Info("Shutting down")
+		slog.Info("Shutdown complete")
+	}
+
+	shutdown.AddWithParam(stop)
+	shutdown.Listen(syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT)
+
+	return nil
+}
