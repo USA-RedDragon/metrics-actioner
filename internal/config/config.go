@@ -26,47 +26,46 @@ type PProf struct {
 	Enabled bool `json:"enabled"`
 }
 
+type Metrics struct {
+	HTTPListener
+	Enabled bool `json:"enabled"`
+}
 type HTTP struct {
 	HTTPListener
 	Tracing
 	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies"`
-}
-
-type Metrics struct {
-	HTTPListener
-	Enabled bool `json:"enabled"`
+	Metrics        Metrics  `json:"metrics"`
 }
 
 // Config is the main configuration for the application
 type Config struct {
-	HTTP    HTTP    `json:"http"`
-	Metrics Metrics `json:"metrics"`
+	HTTP HTTP `json:"http"`
 }
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey         = "config"
-	HTTPHostIPV4Key       = "http.host_ipv4"
-	HTTPHostIPV6Key       = "http.host_ipv6"
-	HTTPPortKey           = "http.port"
-	HTTPTracingEnabledKey = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey   = "http.pprof.enabled"
-	HTTPTrustedProxiesKey = "http.trusted_proxies"
-	MetricsEnabledKey     = "metrics.enabled"
-	MetricsHostIPV4Key    = "metrics.host_ipv4"
-	MetricsHostIPV6Key    = "metrics.host_ipv6"
-	MetricsPortKey        = "metrics.port"
+	ConfigFileKey          = "config"
+	HTTPHostIPV4Key        = "http.host_ipv4"
+	HTTPHostIPV6Key        = "http.host_ipv6"
+	HTTPPortKey            = "http.port"
+	HTTPTracingEnabledKey  = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey    = "http.pprof.enabled"
+	HTTPTrustedProxiesKey  = "http.trusted_proxies"
+	HTTPMetricsEnabledKey  = "http.metrics.enabled"
+	HTTPMetricsHostIPV4Key = "http.metrics.host_ipv4"
+	HTTPMetricsHostIPV6Key = "http.metrics.host_ipv6"
+	HTTPMetricsPortKey     = "http.metrics.port"
 )
 
 const (
-	DefaultHTTPHostIPV4    = "0.0.0.0"
-	DefaultHTTPHostIPV6    = "::"
-	DefaultHTTPPort        = 8080
-	DefaultMetricsHostIPV4 = "127.0.0.1"
-	DefaultMetricsHostIPV6 = "::1"
-	DefaultMetricsPort     = 8081
+	DefaultHTTPHostIPV4        = "0.0.0.0"
+	DefaultHTTPHostIPV6        = "::"
+	DefaultHTTPPort            = 8080
+	DefaultHTTPMetricsHostIPV4 = "127.0.0.1"
+	DefaultHTTPMetricsHostIPV6 = "::1"
+	DefaultHTTPMetricsPort     = 8081
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -78,10 +77,10 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
 	cmd.Flags().Bool(HTTPPProfEnabledKey, false, "Enable pprof")
 	cmd.Flags().StringSlice(HTTPTrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
-	cmd.Flags().Bool(MetricsEnabledKey, false, "Enable metrics server")
-	cmd.Flags().String(MetricsHostIPV4Key, DefaultMetricsHostIPV4, "Metrics server IPv4 host")
-	cmd.Flags().String(MetricsHostIPV6Key, DefaultMetricsHostIPV6, "Metrics server IPv6 host")
-	cmd.Flags().Uint16(MetricsPortKey, DefaultMetricsPort, "Metrics server port")
+	cmd.Flags().Bool(HTTPMetricsEnabledKey, false, "Enable metrics server")
+	cmd.Flags().String(HTTPMetricsHostIPV4Key, DefaultHTTPMetricsHostIPV4, "Metrics server IPv4 host")
+	cmd.Flags().String(HTTPMetricsHostIPV6Key, DefaultHTTPMetricsHostIPV6, "Metrics server IPv6 host")
+	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 }
 
 func (c *Config) Validate() error {
@@ -161,29 +160,29 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		}
 	}
 
-	if cmd.Flags().Changed(MetricsEnabledKey) {
-		config.Metrics.Enabled, err = cmd.Flags().GetBool(MetricsEnabledKey)
+	if cmd.Flags().Changed(HTTPMetricsEnabledKey) {
+		config.HTTP.Metrics.Enabled, err = cmd.Flags().GetBool(HTTPMetricsEnabledKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics enabled: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(MetricsHostIPV4Key) {
-		config.Metrics.IPV4Host, err = cmd.Flags().GetString(MetricsHostIPV4Key)
+	if cmd.Flags().Changed(HTTPMetricsHostIPV4Key) {
+		config.HTTP.Metrics.IPV4Host, err = cmd.Flags().GetString(HTTPMetricsHostIPV4Key)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics IPv4 host: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(MetricsHostIPV6Key) {
-		config.Metrics.IPV6Host, err = cmd.Flags().GetString(MetricsHostIPV6Key)
+	if cmd.Flags().Changed(HTTPMetricsHostIPV6Key) {
+		config.HTTP.Metrics.IPV6Host, err = cmd.Flags().GetString(HTTPMetricsHostIPV6Key)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics IPv6 host: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(MetricsPortKey) {
-		config.Metrics.Port, err = cmd.Flags().GetUint16(MetricsPortKey)
+	if cmd.Flags().Changed(HTTPMetricsPortKey) {
+		config.HTTP.Metrics.Port, err = cmd.Flags().GetUint16(HTTPMetricsPortKey)
 		if err != nil {
 			return &config, fmt.Errorf("failed to get metrics port: %w", err)
 		}
@@ -213,14 +212,14 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	if config.HTTP.Port == 0 {
 		config.HTTP.Port = DefaultHTTPPort
 	}
-	if config.Metrics.IPV4Host == "" {
-		config.Metrics.IPV4Host = DefaultMetricsHostIPV4
+	if config.HTTP.Metrics.IPV4Host == "" {
+		config.HTTP.Metrics.IPV4Host = DefaultHTTPMetricsHostIPV4
 	}
-	if config.Metrics.IPV6Host == "" {
-		config.Metrics.IPV6Host = DefaultMetricsHostIPV6
+	if config.HTTP.Metrics.IPV6Host == "" {
+		config.HTTP.Metrics.IPV6Host = DefaultHTTPMetricsHostIPV6
 	}
-	if config.Metrics.Port == 0 {
-		config.Metrics.Port = DefaultMetricsPort
+	if config.HTTP.Metrics.Port == 0 {
+		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
 	}
 
 	err = config.Validate()

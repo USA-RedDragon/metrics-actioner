@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func applyMiddleware(r *gin.Engine, config *config.HTTP) {
+func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
@@ -21,7 +21,7 @@ func applyMiddleware(r *gin.Engine, config *config.HTTP) {
 	}
 
 	if config.Tracing.Enabled {
-		r.Use(otelgin.Middleware("api"))
+		r.Use(otelgin.Middleware(otelComponent))
 		r.Use(tracingProvider(config))
 	}
 }

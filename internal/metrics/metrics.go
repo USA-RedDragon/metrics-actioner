@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
@@ -36,21 +37,26 @@ func NewServer(config *config.Metrics) *Server {
 }
 
 func (s *Server) Start() {
-	errGrp := errgroup.Group{}
-	errGrp.Go(func() error {
-		return s.ipv4Server.ListenAndServe()
-	})
+	waitGrp := sync.WaitGroup{}
+	waitGrp.Add(1)
+	go func() {
+		defer waitGrp.Done()
+		if err := s.ipv4Server.ListenAndServe(); err != nil && !s.stopped {
+			slog.Error("Metrics server error", "error", err.Error())
+		}
+	}()
 
-	errGrp.Go(func() error {
-		return s.ipv6Server.ListenAndServe()
-	})
+	waitGrp.Add(1)
+	go func() {
+		defer waitGrp.Done()
+		if err := s.ipv6Server.ListenAndServe(); err != nil && !s.stopped {
+			slog.Error("HTTP server error", "error", err.Error())
+		}
+	}()
 
-	slog.Info("Metrics server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
+	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
 
-	err := errGrp.Wait()
-	if err != nil && !s.stopped {
-		slog.Error("Metrics server error", "error", err.Error())
-	}
+	waitGrp.Wait()
 }
 
 func (s *Server) Stop() error {
