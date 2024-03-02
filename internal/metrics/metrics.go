@@ -24,18 +24,18 @@ func NewServer(config *config.Metrics) *Server {
 		ipv4Server: &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			Handler:           promhttp.Handler(),
 		},
 		ipv6Server: &http.Server{
 			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
 			ReadHeaderTimeout: 5 * time.Second,
+			Handler:           promhttp.Handler(),
 		},
 		config: config,
 	}
 }
 
 func (s *Server) Start() {
-	http.Handle("/metrics", promhttp.Handler())
-
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
 		return s.ipv4Server.ListenAndServe()
