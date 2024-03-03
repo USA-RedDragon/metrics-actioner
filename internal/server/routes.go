@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
+	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +23,7 @@ func v1(group *gin.RouterGroup) {
 }
 
 func v1ReceiveWebhook(c *gin.Context) {
-	var json alertmanager.Webhook
+	var json models.Webhook
 	receiver, ok := c.MustGet("AlertManagerReceiver").(*alertmanager.Receiver)
 	if !ok {
 		slog.Error("Failed to get AlertManager receiver from context")
@@ -34,7 +35,7 @@ func v1ReceiveWebhook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := receiver.ReceiveWebhook(json); err != nil {
+	if err := receiver.ReceiveWebhook(&json); err != nil {
 		slog.Error("Failed to process AlertManager webhook", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

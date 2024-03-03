@@ -2,57 +2,63 @@ package alertmanager
 
 import (
 	"log/slog"
-	"time"
 
+	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 )
 
-// https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
-
-type AlertStatus string
-
-const (
-	AlertStatusFiring   AlertStatus = "firing"
-	AlertStatusResolved AlertStatus = "resolved"
-)
-
-type Labels map[string]string
-type Annotations map[string]string
-
-type Alert struct {
-	Status       AlertStatus `json:"status"`
-	Labels       Labels      `json:"labels"`
-	Annotations  Annotations `json:"annotations"`
-	StartsAt     time.Time   `json:"startsAt"`
-	EndsAt       time.Time   `json:"endsAt"`
-	GeneratorURL string      `json:"generatorURL"`
-	Fingerprint  string      `json:"fingerprint"`
-}
-
-// The Alertmanager will send HTTP POST requests in the following JSON format to the configured endpoint:
-type Webhook struct {
-	Version           string      `json:"version"`
-	GroupKey          string      `json:"groupKey"`
-	TruncatedAlerts   int         `json:"truncatedAlerts"`
-	Status            string      `json:"status"`
-	Receiver          string      `json:"receiver"`
-	GroupLabels       Labels      `json:"groupLabels"`
-	CommonLabels      Labels      `json:"commonLabels"`
-	CommonAnnotations Annotations `json:"commonAnnotations"`
-	ExternalURL       string      `json:"externalURL"`
-	Alerts            []Alert     `json:"alerts"`
-}
-
 type Receiver struct {
-	config *config.Actions
+	config            *[]config.Action
+	registeredActions map[string]ActionIface
 }
 
-func NewReceiver(config *config.Actions) *Receiver {
-	return &Receiver{config: config}
+func NewReceiver(config *[]config.Action) *Receiver {
+	return &Receiver{
+		config:            config,
+		registeredActions: findActions(),
+	}
 }
 
-func (r *Receiver) ReceiveWebhook(webhook Webhook) error {
+func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
 	// Print the json to the console
-	slog.Info("Received AlertManager webhook", "webhook", webhook)
+	slog.Info("Received AlertManager webhook")
+
+	// For each defined action in the config
+	for _, alertRule := range *r.config {
+		if len(alertRule.MatchCommonLabels) > 0 {
+			// Check if the common labels match
+			for key, value := range alertRule.MatchCommonLabels {
+				if webhook.CommonLabels[key] != value {
+					// If the common labels don't match, skip this action
+					continue
+				}
+			}
+		}
+		if len(alertRule.MatchGroupLabels) > 0 {
+			// Check if the group labels match
+			for key, value := range alertRule.MatchGroupLabels {
+				if webhook.GroupLabels[key] != value {
+					// If the group labels don't match, skip this action
+					continue
+				}
+			}
+		}
+		// If the alert is not firing, skip this action
+		if webhook.Status != string(models.AlertStatusFiring) {
+			continue
+		}
+		// We match so far, so we execute the action
+		action, err := r.FindAction(alertRule.Action)
+		if err != nil {
+			return err
+		}
+		err = action.Execute(webhook, alertRule.Options)
+		if err != nil {
+			return err
+		}
+	}
+	for _, alert := range webhook.Alerts {
+		slog.Info("Received AlertManager alert", "alert", alert)
+	}
 	return nil
 }

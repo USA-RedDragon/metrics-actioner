@@ -30,6 +30,7 @@ type Metrics struct {
 	HTTPListener
 	Enabled bool `json:"enabled"`
 }
+
 type HTTP struct {
 	HTTPListener
 	Tracing
@@ -38,13 +39,20 @@ type HTTP struct {
 	Metrics        Metrics  `json:"metrics"`
 }
 
-type Actions struct {
+type Labels map[string]string
+type Options map[string]string
+
+type Action struct {
+	MatchCommonLabels Labels  `json:"match_common_labels"`
+	MatchGroupLabels  Labels  `json:"match_group_labels"`
+	Action            string  `json:"action"`
+	Options           Options `json:"options"`
 }
 
 // Config is the main configuration for the application
 type Config struct {
-	HTTP    HTTP    `json:"http"`
-	Actions Actions `json:"actions"`
+	HTTP    HTTP     `json:"http"`
+	Actions []Action `json:"actions"`
 }
 
 //nolint:golint,gochecknoglobals
