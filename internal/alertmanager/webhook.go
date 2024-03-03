@@ -47,6 +47,7 @@ func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
 		if webhook.Status != string(models.AlertStatusFiring) {
 			continue
 		}
+		slog.Info("Matched alert rule", "rule", alertRule)
 		// We match so far, so we execute the action
 		action, err := r.FindAction(alertRule.Action)
 		if err != nil {
