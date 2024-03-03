@@ -19,6 +19,15 @@ func NewReceiver(config *[]config.Action) *Receiver {
 	}
 }
 
+func matchLabels(webhookLabels models.Labels, ruleLabels config.Labels) bool {
+	for key, value := range ruleLabels {
+		if webhookLabels[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
 	// Print the json to the console
 	slog.Info("Received AlertManager webhook")
@@ -27,27 +36,23 @@ func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
 	for _, alertRule := range *r.config {
 		if len(alertRule.MatchCommonLabels) > 0 {
 			// Check if the common labels match
-			for key, value := range alertRule.MatchCommonLabels {
-				if webhook.CommonLabels[key] != value {
-					// If the common labels don't match, skip this action
-					continue
-				}
+			if !matchLabels(webhook.CommonLabels, alertRule.MatchCommonLabels) {
+				// If the common labels don't match, skip this action
+				continue
 			}
 		}
 		if len(alertRule.MatchGroupLabels) > 0 {
 			// Check if the group labels match
-			for key, value := range alertRule.MatchGroupLabels {
-				if webhook.GroupLabels[key] != value {
-					// If the group labels don't match, skip this action
-					continue
-				}
+			if !matchLabels(webhook.GroupLabels, alertRule.MatchGroupLabels) {
+				// If the group labels don't match, skip this action
+				continue
 			}
 		}
 		// If the alert is not firing, skip this action
 		if webhook.Status != string(models.AlertStatusFiring) {
 			continue
 		}
-		slog.Info("Matched alert rule", "rule", alertRule)
+		slog.Info("Matched alert rule with webhook", "rule", alertRule, "webhook", webhook)
 		// We match so far, so we execute the action
 		action, err := r.FindAction(alertRule.Action)
 		if err != nil {
