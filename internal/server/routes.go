@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
@@ -17,5 +18,20 @@ func applyRoutes(r *gin.Engine) {
 }
 
 func v1(group *gin.RouterGroup) {
-	group.POST("/webhooks/alertmanager", alertmanager.ReceiveWebhook)
+	group.POST("/webhooks/alertmanager", v1ReceiveWebhook)
+}
+
+func v1ReceiveWebhook(c *gin.Context) {
+	var json alertmanager.Webhook
+	if err := c.ShouldBindJSON(&json); err != nil {
+		slog.Error("Failed to bind AlertManager webhook JSON", "error", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := alertmanager.ReceiveWebhook(json); err != nil {
+		slog.Error("Failed to process AlertManager webhook", "error", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
