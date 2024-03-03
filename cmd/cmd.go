@@ -7,6 +7,7 @@ import (
 	"os"
 	"syscall"
 
+	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/USA-RedDragon/metrics-actioner/internal/server"
 	"github.com/spf13/cobra"
@@ -42,8 +43,10 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	alertmanagerReceiver := alertmanager.NewReceiver(&config.Actions)
+
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(&config.HTTP)
+	server := server.NewServer(&config.HTTP, alertmanagerReceiver)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)

@@ -3,6 +3,8 @@ package alertmanager
 import (
 	"log/slog"
 	"time"
+
+	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 )
 
 // https://prometheus.io/docs/alerting/latest/configuration/#webhook_config
@@ -41,7 +43,15 @@ type Webhook struct {
 	Alerts            []Alert     `json:"alerts"`
 }
 
-func ReceiveWebhook(webhook Webhook) error {
+type Receiver struct {
+	config *config.Actions
+}
+
+func NewReceiver(config *config.Actions) *Receiver {
+	return &Receiver{config: config}
+}
+
+func (r *Receiver) ReceiveWebhook(webhook Webhook) error {
 	// Print the json to the console
 	slog.Info("Received AlertManager webhook", "webhook", webhook)
 	return nil

@@ -17,3 +17,5 @@ http:
     ipv4_host: '127.0.0.1' # localhost
     ipv6_host: '::1' # localhost
     port: 8081
+
+actions:

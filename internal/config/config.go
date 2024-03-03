@@ -38,9 +38,13 @@ type HTTP struct {
 	Metrics        Metrics  `json:"metrics"`
 }
 
+type Actions struct {
+}
+
 // Config is the main configuration for the application
 type Config struct {
-	HTTP HTTP `json:"http"`
+	HTTP    HTTP    `json:"http"`
+	Actions Actions `json:"actions"`
 }
 
 //nolint:golint,gochecknoglobals

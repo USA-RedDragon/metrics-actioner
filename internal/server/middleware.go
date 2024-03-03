@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 
+	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -10,10 +11,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string) {
+func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string, receiver *alertmanager.Receiver) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
+
+	if otelComponent == "api" {
+		r.Use(alertManagerReceiverProvider(receiver))
+	}
 
 	err := r.SetTrustedProxies(config.TrustedProxies)
 	if err != nil {
@@ -38,6 +43,13 @@ func tracingProvider(config *config.HTTP) gin.HandlerFunc {
 				)
 			}
 		}
+		c.Next()
+	}
+}
+
+func alertManagerReceiverProvider(receiver *alertmanager.Receiver) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("AlertManagerReceiver", receiver)
 		c.Next()
 	}
 }

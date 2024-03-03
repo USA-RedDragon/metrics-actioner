@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,7 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
-func NewServer(config *config.HTTP) *Server {
+func NewServer(config *config.HTTP, receiver *alertmanager.Receiver) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -44,7 +45,7 @@ func NewServer(config *config.HTTP) *Server {
 		writeTimeout = 60 * time.Second
 	}
 
-	applyMiddleware(r, config, "api")
+	applyMiddleware(r, config, "api", receiver)
 	applyRoutes(r)
 
 	var metricsIPV4Server *http.Server
@@ -52,7 +53,7 @@ func NewServer(config *config.HTTP) *Server {
 
 	if config.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics")
+		applyMiddleware(metricsRouter, config, "metrics", receiver)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{
