@@ -18,14 +18,14 @@ import (
 type RolloutRestartDeployment struct {
 }
 
-type Options struct {
+type RolloutRestartDeploymentOptions struct {
 	Namespace  string
 	Deployment string
 }
 
 func (r *RolloutRestartDeployment) Execute(webhook *models.Webhook, options map[string]string) error {
 	slog.Info("RolloutRestartDeployment action executed")
-	var opts Options
+	var opts RolloutRestartDeploymentOptions
 	// Get the options
 	for k, v := range options {
 		switch k {
@@ -53,7 +53,7 @@ func (r *RolloutRestartDeployment) Execute(webhook *models.Webhook, options map[
 	return r.restart(opts)
 }
 
-func (r *RolloutRestartDeployment) restart(opts Options) error {
+func (r *RolloutRestartDeployment) restart(opts RolloutRestartDeploymentOptions) error {
 	// Now we essentially run `kubectl -n <namespace> rollout restart deployment <deployment>`
 	slog.Info("Restarting deployment", "namespace", opts.Namespace, "deployment", opts.Deployment)
 
