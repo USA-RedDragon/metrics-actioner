@@ -21,5 +21,6 @@ func (r *Receiver) FindAction(action string) (ActionIface, error) {
 func findActions() map[string]ActionIface {
 	foundActions := make(map[string]ActionIface)
 	foundActions["rollout-restart-deployment"] = &actions.RolloutRestartDeployment{}
+	foundActions["ssh"] = &actions.SSH{}
 	return foundActions
 }
