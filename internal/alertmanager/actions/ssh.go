@@ -92,7 +92,7 @@ func (s *SSH) runCommand(opts SSHOptions, key ssh.Signer) error {
 	var hostkeyCallback ssh.HostKeyCallback
 	if opts.HostKeys != SSHOptionHostKeyIgnore {
 		// Create a tempoary hostkeys file
-		file, err := os.CreateTemp("", "hostkeys")
+		file, err := os.CreateTemp("/tmp", "hostkeys")
 		if err != nil {
 			return fmt.Errorf("error creating temporary file: %w", err)
 		}
