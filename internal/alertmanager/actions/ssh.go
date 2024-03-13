@@ -6,10 +6,10 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type SSHOptionHostKey string
@@ -91,32 +91,20 @@ func (s *SSH) runCommand(opts SSHOptions, key ssh.Signer) error {
 
 	var hostkeyCallback ssh.HostKeyCallback
 	if opts.HostKeys != SSHOptionHostKeyIgnore {
-		// Create a tempoary hostkeys file
-		file, err := os.CreateTemp("/tmp", "hostkeys")
-		if err != nil {
-			return fmt.Errorf("error creating temporary file: %w", err)
-		}
-		defer func() {
-			err := file.Close()
-			if err != nil {
-				slog.Warn("error closing temporary file", "error", err)
-			}
-			err = os.Remove(file.Name())
-			if err != nil {
-				slog.Warn("error removing temporary file", "error", err)
-			}
-		}()
-
-		// Place opts.HostKeys into the file
-		_, err = file.WriteString(string(opts.HostKeys))
-		if err != nil {
-			return fmt.Errorf("error writing to temporary file: %w", err)
+		db := &hostKeyDB{
+			revoked: make(map[string]*KnownKey),
 		}
 
-		hostkeyCallback, err = knownhosts.New(file.Name())
-		if err != nil {
-			return fmt.Errorf("error creating hostkey callback: %w", err)
+		if err := db.Read(strings.NewReader(string(opts.HostKeys)), "known_hosts"); err != nil {
+			return err
 		}
+
+		var certChecker ssh.CertChecker
+		certChecker.IsHostAuthority = db.IsHostAuthority
+		certChecker.IsRevoked = db.IsRevoked
+		certChecker.HostKeyFallback = db.check
+
+		hostkeyCallback = certChecker.CheckHostKey
 	} else {
 		hostkeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 			return nil
