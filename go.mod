@@ -11,8 +11,8 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/ztrue/shutdown v0.1.1
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.52.0
-	go.opentelemetry.io/otel v1.27.0
-	go.opentelemetry.io/otel/trace v1.27.0
+	go.opentelemetry.io/otel v1.28.0
+	go.opentelemetry.io/otel/trace v1.28.0
 	golang.org/x/crypto v0.24.0
 	golang.org/x/sync v0.7.0
 	k8s.io/apimachinery v0.30.2
