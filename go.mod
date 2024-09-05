@@ -1,6 +1,6 @@
 module github.com/USA-RedDragon/metrics-actioner
 
-go 1.23.0
+go 1.23.1
 
 require (
 	github.com/ghodss/yaml v1.0.0
