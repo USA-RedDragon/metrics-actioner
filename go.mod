@@ -13,8 +13,8 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.56.0
 	go.opentelemetry.io/otel v1.31.0
 	go.opentelemetry.io/otel/trace v1.31.0
-	golang.org/x/crypto v0.28.0
-	golang.org/x/sync v0.8.0
+	golang.org/x/crypto v0.29.0
+	golang.org/x/sync v0.9.0
 	k8s.io/apimachinery v0.31.3
 	k8s.io/client-go v0.31.3
 )
@@ -74,9 +74,9 @@ require (
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
-	golang.org/x/term v0.25.0 // indirect
-	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/term v0.26.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
