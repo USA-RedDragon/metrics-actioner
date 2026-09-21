@@ -1,6 +1,6 @@
 module github.com/USA-RedDragon/metrics-actioner
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/ghodss/yaml v1.0.0
@@ -14,7 +14,7 @@ require (
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/trace v1.34.0
 	golang.org/x/crypto v0.50.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.23.0
 	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.32.1
 )
