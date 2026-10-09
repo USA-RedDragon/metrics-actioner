@@ -1,29 +1,40 @@
+# Sample configuration
 http:
-  ipv4_host: '0.0.0.0' # all interfaces
-  ipv6_host: '::' # all interfaces
+  # HTTP server IPv4 host
+  ipv4_host: "0.0.0.0"
+  # HTTP server IPv6 host
+  ipv6_host: "::"
+  # HTTP server port
   port: 8080
-
-  trusted_proxies: []
-
   tracing:
+    # Enable OpenTelemetry tracing
     enabled: false
-    otlp_endpoint: ''
-
+    # OpenTelemetry OTLP endpoint
+    # otlp_endpoint: ""
   pprof:
+    # Enable pprof on the HTTP server
     enabled: false
-
+  # Comma-separated list of trusted proxy IPs or CIDRs
+  # trusted_proxies: []
   metrics:
-    enabled: false
-    ipv4_host: '127.0.0.1' # localhost
-    ipv6_host: '::1' # localhost
+    # Metrics server IPv4 host
+    ipv4_host: "127.0.0.1"
+    # Metrics server IPv6 host
+    ipv6_host: "::1"
+    # Metrics server port
     port: 8081
-
-actions:
-- match_common_labels:
-    alertname: TrunkRecorderNoCalls
-  match_group_labels:
-    namespace: trunk-recorder
-  action: rollout-restart-deployment
-  options:
-    deployment: trunk-recorder-app
-    namespace: trunk-recorder
+    # Enable the metrics server
+    enabled: false
+  # Deprecated alias of http.tracing.enabled
+  enabled: false
+  # Deprecated alias of http.tracing.otlp_endpoint
+  # otlp_endpoint: ""
+# Rules that run an action when a firing AlertManager webhook matches them. Only settable in the config file.
+# actions:
+#   - match_common_labels:
+#       example: ""
+#     match_group_labels:
+#       example: ""
+#     action: ""
+#     options:
+#       example: ""
