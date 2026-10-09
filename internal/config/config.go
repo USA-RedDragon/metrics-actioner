@@ -1,6 +1,10 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"net/netip"
+	"strings"
+)
 
 //go:generate go tool configulator -type Config
 
@@ -71,6 +75,17 @@ func (c *Config) Validate() error {
 	}
 	if c.HTTP.Tracing.OTLPEndpoint == "" {
 		c.HTTP.Tracing.OTLPEndpoint = c.HTTP.LegacyTracingOTLPEndpoint
+	}
+	for i, proxy := range c.HTTP.TrustedProxies {
+		var err error
+		if strings.Contains(proxy, "/") {
+			_, err = netip.ParsePrefix(proxy)
+		} else {
+			_, err = netip.ParseAddr(proxy)
+		}
+		if err != nil {
+			return fmt.Errorf("http.trusted_proxies[%d]: %w", i, err)
+		}
 	}
 	for i, a := range c.Actions {
 		switch a.Action {

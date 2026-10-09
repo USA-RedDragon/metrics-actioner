@@ -21,3 +21,17 @@ func TestValidateRejectsUnknownAction(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateRejectsBadTrustedProxies(t *testing.T) {
+	t.Parallel()
+	for _, proxy := range []string{"not-an-ip", "10.0.0.0/33", "1.2.3"} {
+		cfg := config.Config{HTTP: config.HTTP{TrustedProxies: []string{"10.0.0.1", proxy}}}
+		if err := cfg.Validate(); err == nil {
+			t.Errorf("trusted proxy %q: expected an error", proxy)
+		}
+	}
+	cfg := config.Config{HTTP: config.HTTP{TrustedProxies: []string{"10.0.0.1", "10.0.0.0/8", "::1", "fd00::/8"}}}
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("valid trusted proxies: %v", err)
+	}
+}
