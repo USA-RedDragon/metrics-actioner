@@ -2,6 +2,8 @@ package alertmanager
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
@@ -33,6 +35,7 @@ func (r *Receiver) ReceiveWebhook(ctx context.Context, webhook *models.Webhook) 
 	// Print the json to the console
 	slog.Info("Received AlertManager webhook")
 
+	var errs []error
 	// For each defined action in the config
 	for _, alertRule := range *r.config {
 		if len(alertRule.MatchCommonLabels) > 0 {
@@ -57,15 +60,16 @@ func (r *Receiver) ReceiveWebhook(ctx context.Context, webhook *models.Webhook) 
 		// We match so far, so we execute the action
 		action, err := r.FindAction(alertRule.Action)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 		err = action.Execute(ctx, webhook, alertRule.Options)
 		if err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("action %s: %w", alertRule.Action, err))
 		}
 	}
 	for _, alert := range webhook.Alerts {
 		slog.Info("Received AlertManager alert", "alert", alert)
 	}
-	return nil
+	return errors.Join(errs...)
 }
