@@ -8,6 +8,10 @@ This app reacts to AlertManager alerts via Webhook to perform in-cluster actions
 
 Point an AlertManager webhook receiver at `/api/v1/webhooks/alertmanager`. Each firing webhook is checked against the `actions` rules, and every rule whose labels match runs its action.
 
+The endpoint replies `200` as soon as the payload is valid (`400` otherwise) and runs the matching actions in the background, so slow actions never make AlertManager time out and resend. Each action is cancelled after 5 minutes. While the actions for an alert group are still running, a resend of the same group (same `groupKey`) is skipped. On shutdown the app waits up to 20 seconds for running actions, then cancels them.
+
+Because AlertManager no longer sees action results, failures are logged with the action, the rule's index in `actions` and the group key, and counted in the `metrics_actioner_action_runs_total` and `metrics_actioner_action_failures_total` counters (labelled by `action`) on the metrics server.
+
 ## Configuration
 
 Configuration is read from `config.yaml` in the working directory, or from the file given with `--config`/`-c` or the `CONFIG` environment variable. Environment variables and flags override the file. A full example is in [`config.example.yaml`](config.example.yaml).

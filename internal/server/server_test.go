@@ -11,6 +11,7 @@ import (
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/USA-RedDragon/metrics-actioner/internal/server"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func testConfig() *config.HTTP {
@@ -28,7 +29,7 @@ func TestStartStop(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig()
 	cfg.Metrics.Enabled = true
-	s := server.NewServer(cfg, alertmanager.NewReceiver(&[]config.Action{}))
+	s := server.NewServer(cfg, newReceiver(t))
 	if err := s.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +45,7 @@ func TestStartReleasesListenersOnError(t *testing.T) {
 
 	cfg := testConfig()
 	cfg.Port = port
-	s := server.NewServer(cfg, alertmanager.NewReceiver(&[]config.Action{}))
+	s := server.NewServer(cfg, newReceiver(t))
 	if err := s.Start(); err == nil {
 		_ = s.Stop()
 		t.Fatal("expected Start to fail while the IPv6 port is taken")
@@ -66,6 +67,15 @@ func TestStartReleasesListenersOnError(t *testing.T) {
 		resp.Body.Close()
 		t.Fatal("IPv4 server still serving after Start failed")
 	}
+}
+
+func newReceiver(t *testing.T) *alertmanager.Receiver {
+	t.Helper()
+	r, err := alertmanager.NewReceiver(&[]config.Action{}, prometheus.NewRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }
 
 // holdIPv6PortFreeOnIPv4 listens on an IPv6 loopback port whose IPv4

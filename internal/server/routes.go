@@ -37,10 +37,13 @@ func v1ReceiveWebhook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{errorKey: err.Error()})
 		return
 	}
-	if err := receiver.ReceiveWebhook(c.Request.Context(), &json); err != nil {
-		slog.Error("Failed to process AlertManager webhook", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{errorKey: err.Error()})
+	switch models.AlertStatus(json.Status) {
+	case models.AlertStatusFiring, models.AlertStatusResolved:
+	default:
+		slog.Error("Invalid AlertManager webhook status", "status", json.Status)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "status must be firing or resolved"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
+	receiver.Dispatch(&json)
+	c.JSON(http.StatusOK, gin.H{"status": "accepted"})
 }

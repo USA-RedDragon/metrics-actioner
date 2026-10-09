@@ -1,19 +1,25 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"syscall"
+	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
 	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 	"github.com/USA-RedDragon/metrics-actioner/internal/server"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
-	"golang.org/x/sync/errgroup"
 )
+
+// actionShutdownTimeout is how long shutdown waits for running actions
+// before cancelling them.
+const actionShutdownTimeout = 20 * time.Second
 
 var (
 	ErrMissingConfig = errors.New("missing configuration")
@@ -44,11 +50,14 @@ func NewCommand(version, commit string) *cobra.Command {
 func run(cmd *cobra.Command, config *config.Config) error {
 	slog.Info("Metrics Actioner", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
-	alertmanagerReceiver := alertmanager.NewReceiver(&config.Actions)
+	alertmanagerReceiver, err := alertmanager.NewReceiver(&config.Actions, prometheus.DefaultRegisterer)
+	if err != nil {
+		return err
+	}
 
 	slog.Info("Starting HTTP server")
 	server := server.NewServer(&config.HTTP, alertmanagerReceiver)
-	err := server.Start()
+	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
@@ -56,15 +65,10 @@ func run(cmd *cobra.Command, config *config.Config) error {
 	stop := func(_ os.Signal) {
 		slog.Info("Shutting down")
 
-		errGrp := errgroup.Group{}
-
-		if server != nil {
-			errGrp.Go(func() error {
-				return server.Stop()
-			})
-		}
-
-		err := errGrp.Wait()
+		err := server.Stop()
+		ctx, cancel := context.WithTimeout(context.Background(), actionShutdownTimeout)
+		defer cancel()
+		err = errors.Join(err, alertmanagerReceiver.Shutdown(ctx))
 		if err != nil {
 			slog.Error("Shutdown error", "error", err.Error())
 			os.Exit(1)
