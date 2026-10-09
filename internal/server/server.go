@@ -25,7 +25,10 @@ type Server struct {
 	config            *config.HTTP
 }
 
-const defTimeout = 5 * time.Second
+const (
+	defTimeout        = 5 * time.Second
+	pprofWriteTimeout = 60 * time.Second
+)
 
 func NewServer(config *config.HTTP, receiver *alertmanager.Receiver) *Server {
 	gin.SetMode(gin.ReleaseMode)
@@ -41,7 +44,7 @@ func NewServer(config *config.HTTP, receiver *alertmanager.Receiver) *Server {
 
 	writeTimeout := defTimeout
 	if config.PProf.Enabled {
-		writeTimeout = 60 * time.Second
+		writeTimeout = pprofWriteTimeout
 	}
 
 	applyMiddleware(r, config, "api", receiver)
@@ -79,7 +82,7 @@ func NewServer(config *config.HTTP, receiver *alertmanager.Receiver) *Server {
 		ipv6Server: &http.Server{
 			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
 			ReadHeaderTimeout: defTimeout,
-			WriteTimeout:      defTimeout,
+			WriteTimeout:      writeTimeout,
 			Handler:           r,
 		},
 		metricsIPV4Server: metricsIPV4Server,
