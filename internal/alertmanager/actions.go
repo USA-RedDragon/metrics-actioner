@@ -5,6 +5,7 @@ import (
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/actions"
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
+	"github.com/USA-RedDragon/metrics-actioner/internal/config"
 )
 
 type ActionIface interface {
@@ -20,7 +21,7 @@ func (r *Receiver) FindAction(action string) (ActionIface, error) {
 
 func findActions() map[string]ActionIface {
 	foundActions := make(map[string]ActionIface)
-	foundActions["rollout-restart-deployment"] = &actions.RolloutRestartDeployment{}
-	foundActions["ssh"] = &actions.SSH{}
+	foundActions[config.ActionRolloutRestartDeployment] = &actions.RolloutRestartDeployment{}
+	foundActions[config.ActionSSH] = &actions.SSH{}
 	return foundActions
 }

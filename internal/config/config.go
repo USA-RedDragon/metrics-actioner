@@ -1,5 +1,7 @@
 package config
 
+import "fmt"
+
 //go:generate go tool configulator -type Config
 
 // Tracing configures OpenTelemetry tracing of HTTP requests.
@@ -35,6 +37,12 @@ type HTTP struct {
 	LegacyTracingOTLPEndpoint string `name:"otlp_endpoint" flag:"-" env:"-" description:"Deprecated alias of http.tracing.otlp_endpoint"`
 }
 
+// Action names accepted in actions[].action.
+const (
+	ActionRolloutRestartDeployment = "rollout-restart-deployment"
+	ActionSSH                      = "ssh"
+)
+
 // Labels are label names and values that must all match.
 type Labels map[string]string
 
@@ -63,6 +71,13 @@ func (c *Config) Validate() error {
 	}
 	if c.HTTP.Tracing.OTLPEndpoint == "" {
 		c.HTTP.Tracing.OTLPEndpoint = c.HTTP.LegacyTracingOTLPEndpoint
+	}
+	for i, a := range c.Actions {
+		switch a.Action {
+		case ActionRolloutRestartDeployment, ActionSSH:
+		default:
+			return fmt.Errorf("actions[%d].action: unknown action %q", i, a.Action)
+		}
 	}
 	return nil
 }
