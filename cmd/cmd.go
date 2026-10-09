@@ -53,7 +53,7 @@ func run(cmd *cobra.Command, config *config.Config) error {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
 
-	stop := func(sig os.Signal) {
+	stop := func(_ os.Signal) {
 		slog.Info("Shutting down")
 
 		errGrp := errgroup.Group{}

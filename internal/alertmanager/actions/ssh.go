@@ -20,6 +20,16 @@ const (
 	SSHOptionHostKeyIgnore SSHOptionHostKey = "ignore"
 )
 
+// Names of the ssh action's options.
+const (
+	SSHOptionCommand  = "command"
+	SSHOptionHost     = "host"
+	SSHOptionPort     = "port"
+	SSHOptionUser     = "user"
+	SSHOptionKey      = "key"
+	SSHOptionHostKeys = "hostKeys"
+)
+
 const (
 	defaultSSHPort           = 22
 	defaultSSHConnectTimeout = 30 * time.Second
@@ -47,11 +57,11 @@ func ParseSSHOptions(options map[string]string) (SSHOptions, error) {
 	// Get the options
 	for k, v := range options {
 		switch k {
-		case "command":
+		case SSHOptionCommand:
 			opts.Command = v
-		case "host":
+		case SSHOptionHost:
 			opts.Host = v
-		case "port":
+		case SSHOptionPort:
 			if v == "" {
 				continue
 			}
@@ -60,11 +70,11 @@ func ParseSSHOptions(options map[string]string) (SSHOptions, error) {
 				return opts, fmt.Errorf("invalid port option: %s", v)
 			}
 			opts.Port = uint16(port)
-		case "user":
+		case SSHOptionUser:
 			opts.User = v
-		case "key":
+		case SSHOptionKey:
 			opts.Key = v
-		case "hostKeys":
+		case SSHOptionHostKeys:
 			opts.HostKeys = SSHOptionHostKey(v)
 		default:
 			slog.Warn("Unknown option", "option", k)
@@ -86,7 +96,7 @@ func ParseSSHOptions(options map[string]string) (SSHOptions, error) {
 	return opts, nil
 }
 
-func (s *SSH) Execute(ctx context.Context, webhook *models.Webhook, options map[string]string) error {
+func (s *SSH) Execute(ctx context.Context, _ *models.Webhook, options map[string]string) error {
 	slog.Info("SSH action executed")
 	opts, err := ParseSSHOptions(options)
 	if err != nil {
@@ -125,7 +135,7 @@ func (s *SSH) runCommand(ctx context.Context, opts SSHOptions, key ssh.Signer) e
 
 		hostkeyCallback = certChecker.CheckHostKey
 	} else {
-		hostkeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		hostkeyCallback = func(string, net.Addr, ssh.PublicKey) error {
 			return nil
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"testing"
 
@@ -44,10 +45,14 @@ func TestStartReleasesListenersOnError(t *testing.T) {
 		t.Skipf("no IPv6 loopback: %v", err)
 	}
 	defer held.Close()
-	port := held.Addr().(*net.TCPAddr).Port
+	addr, err := netip.ParseAddrPort(held.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := int(addr.Port())
 
 	cfg := testConfig()
-	cfg.Port = uint16(port)
+	cfg.Port = addr.Port()
 	s := server.NewServer(cfg, alertmanager.NewReceiver(&[]config.Action{}))
 	if err := s.Start(); err == nil {
 		_ = s.Stop()
@@ -60,7 +65,11 @@ func TestStartReleasesListenersOnError(t *testing.T) {
 	}
 	l.Close()
 
-	resp, err := http.Get("http://" + net.JoinHostPort("127.0.0.1", strconv.Itoa(port)) + "/health")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(port))+"/health", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err == nil {
 		resp.Body.Close()
 		t.Fatal("IPv4 server still serving after Start failed")

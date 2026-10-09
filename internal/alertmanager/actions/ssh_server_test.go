@@ -112,14 +112,7 @@ func (s *sshServer) knownHostsLine() string {
 
 func (s *sshServer) options(t *testing.T, command, hostKeys string) map[string]string {
 	t.Helper()
-	return map[string]string{
-		"command":  command,
-		"host":     "127.0.0.1",
-		"port":     s.port,
-		"user":     "admin",
-		"key":      writeKey(t),
-		"hostKeys": hostKeys,
-	}
+	return dialOptions(s.port, writeKey(t), command, hostKeys)
 }
 
 func TestSSHRunsCommandWithKnownHostKey(t *testing.T) {
@@ -152,20 +145,7 @@ func TestSSHCancelStopsRunningCommand(t *testing.T) {
 	srv := startSSHServer(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
-	if err := executeWithinOpts(t, ctx, srv.options(t, "hang", "ignore")); err == nil {
+	if err := executeWithin(ctx, t, &actions.SSH{}, srv.options(t, "hang", "ignore")); err == nil {
 		t.Fatal("expected an error when the context ends during the command")
-	}
-}
-
-func executeWithinOpts(t *testing.T, ctx context.Context, opts map[string]string) error {
-	t.Helper()
-	done := make(chan error, 1)
-	go func() { done <- (&actions.SSH{}).Execute(ctx, nil, opts) }()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(10 * time.Second):
-		t.Fatal("ssh action did not return after its context ended")
-		return nil
 	}
 }

@@ -12,8 +12,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // known_hosts hashed hostnames are HMAC-SHA1 by format
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -128,14 +127,6 @@ type hostKeyDB struct {
 	// Serialized version of revoked keys
 	revoked map[string]*KnownKey
 	lines   []keyDBLine
-}
-
-func newHostKeyDB() *hostKeyDB {
-	db := &hostKeyDB{
-		revoked: make(map[string]*KnownKey),
-	}
-
-	return db
 }
 
 func keyEq(a, b ssh.PublicKey) bool {
@@ -333,7 +324,7 @@ func (db *hostKeyDB) check(address string, remote net.Addr, remoteKey ssh.Public
 
 	host, port, err := net.SplitHostPort(remote.String())
 	if err != nil {
-		return fmt.Errorf("knownhosts: SplitHostPort(%s): %v", remote, err)
+		return fmt.Errorf("knownhosts: SplitHostPort(%s): %w", remote, err)
 	}
 
 	hostToCheck := addr{host, port}
@@ -341,7 +332,7 @@ func (db *hostKeyDB) check(address string, remote net.Addr, remoteKey ssh.Public
 		// Give preference to the hostname if available.
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
-			return fmt.Errorf("knownhosts: SplitHostPort(%s): %v", address, err)
+			return fmt.Errorf("knownhosts: SplitHostPort(%s): %w", address, err)
 		}
 
 		hostToCheck = addr{host, port}
@@ -354,10 +345,6 @@ func (db *hostKeyDB) check(address string, remote net.Addr, remoteKey ssh.Public
 // given address.  If we only find an entry for the IP address,
 // or only the hostname, then this still succeeds.
 func (db *hostKeyDB) checkAddr(a addr, remoteKey ssh.PublicKey) error {
-	// TODO(hanwen): are these the right semantics? What if there
-	// is just a key for the IP address, but not for the
-	// hostname?
-
 	// Algorithm => key.
 	knownKeys := map[string]KnownKey{}
 	for _, l := range db.lines {
@@ -402,7 +389,7 @@ func (db *hostKeyDB) Read(r io.Reader, filename string) error {
 		}
 
 		if err := db.parseLine(line, filename, lineNum); err != nil {
-			return fmt.Errorf("knownhosts: %s:%d: %v", filename, lineNum, err)
+			return fmt.Errorf("knownhosts: %s:%d: %w", filename, lineNum, err)
 		}
 	}
 	return scanner.Err()
@@ -424,31 +411,6 @@ func Normalize(address string) string {
 	return entry
 }
 
-// Line returns a line to add append to the known_hosts files.
-func Line(addresses []string, key ssh.PublicKey) string {
-	var trimmed []string
-	for _, a := range addresses {
-		trimmed = append(trimmed, Normalize(a))
-	}
-
-	return strings.Join(trimmed, ",") + " " + serialize(key)
-}
-
-// HashHostname hashes the given hostname. The hostname is not
-// normalized before hashing.
-func HashHostname(hostname string) string {
-	// TODO(hanwen): check if we can safely normalize this always.
-	salt := make([]byte, sha1.Size)
-
-	_, err := rand.Read(salt)
-	if err != nil {
-		panic(fmt.Sprintf("crypto/rand failure %v", err))
-	}
-
-	hash := hashHost(hostname, salt)
-	return encodeHash(sha1HashType, salt, hash)
-}
-
 func decodeHash(encoded string) (hashType string, salt, hash []byte, err error) {
 	if len(encoded) == 0 || encoded[0] != '|' {
 		err = errors.New("knownhosts: hashed host must start with '|'")
@@ -468,14 +430,6 @@ func decodeHash(encoded string) (hashType string, salt, hash []byte, err error) 
 		return
 	}
 	return
-}
-
-func encodeHash(typ string, salt []byte, hash []byte) string {
-	return strings.Join([]string{"",
-		typ,
-		base64.StdEncoding.EncodeToString(salt),
-		base64.StdEncoding.EncodeToString(hash),
-	}, "|")
 }
 
 // See https://android.googlesource.com/platform/external/openssh/+/ab28f5495c85297e7a597c1ba62e996416da7c7e/hostfile.c#120

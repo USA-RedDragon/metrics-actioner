@@ -55,23 +55,26 @@ func writeKey(t *testing.T) string {
 	return path
 }
 
-func executeWithin(t *testing.T, ctx context.Context, s *actions.SSH, port, key string) error {
-	t.Helper()
-	opts := map[string]string{
-		"command":  "true",
-		"host":     "127.0.0.1",
-		"port":     port,
-		"user":     "admin",
-		"key":      key,
-		"hostKeys": "ignore",
+func dialOptions(port, key, command, hostKeys string) map[string]string {
+	return map[string]string{
+		actions.SSHOptionCommand:  command,
+		actions.SSHOptionHost:     "127.0.0.1",
+		actions.SSHOptionPort:     port,
+		actions.SSHOptionUser:     testUser,
+		actions.SSHOptionKey:      key,
+		actions.SSHOptionHostKeys: hostKeys,
 	}
+}
+
+func executeWithin(ctx context.Context, t *testing.T, s *actions.SSH, opts map[string]string) error {
+	t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- s.Execute(ctx, &models.Webhook{}, opts) }()
 	select {
 	case err := <-done:
 		return err
 	case <-time.After(10 * time.Second):
-		t.Fatal("ssh action did not return; it hangs on a host that never answers")
+		t.Fatal("ssh action did not return after its context or connect timeout ended")
 		return nil
 	}
 }
@@ -80,7 +83,7 @@ func TestSSHHonorsContext(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	if err := executeWithin(t, ctx, &actions.SSH{}, silentServer(t), writeKey(t)); err == nil {
+	if err := executeWithin(ctx, t, &actions.SSH{}, dialOptions(silentServer(t), writeKey(t), "true", "ignore")); err == nil {
 		t.Fatal("expected an error from a host that never answers")
 	}
 }
@@ -88,7 +91,7 @@ func TestSSHHonorsContext(t *testing.T) {
 func TestSSHConnectTimeout(t *testing.T) {
 	t.Parallel()
 	s := &actions.SSH{ConnectTimeout: 200 * time.Millisecond}
-	if err := executeWithin(t, context.Background(), s, silentServer(t), writeKey(t)); err == nil {
+	if err := executeWithin(context.Background(), t, s, dialOptions(silentServer(t), writeKey(t), "true", "ignore")); err == nil {
 		t.Fatal("expected an error from a host that never answers")
 	}
 }

@@ -1,6 +1,6 @@
 package actions
 
-//nolint:golint,revive
+//nolint:revive
 import (
 	"context"
 	"fmt"

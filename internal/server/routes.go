@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const errorKey = "error"
+
 func applyRoutes(r *gin.Engine) {
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
@@ -27,17 +29,17 @@ func v1ReceiveWebhook(c *gin.Context) {
 	receiver, ok := c.MustGet("AlertManagerReceiver").(*alertmanager.Receiver)
 	if !ok {
 		slog.Error("Failed to get AlertManager receiver from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: "internal server error"})
 		return
 	}
 	if err := c.ShouldBindJSON(&json); err != nil {
 		slog.Error("Failed to bind AlertManager webhook JSON", "error", err.Error())
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: err.Error()})
 		return
 	}
 	if err := receiver.ReceiveWebhook(c.Request.Context(), &json); err != nil {
 		slog.Error("Failed to process AlertManager webhook", "error", err.Error())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
