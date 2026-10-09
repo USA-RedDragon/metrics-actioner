@@ -27,27 +27,28 @@ func NewCommand(version, commit string) *cobra.Command {
 			"version": version,
 			"commit":  commit,
 		},
-		RunE:          run,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	config.RegisterFlags(cmd)
+	loader := config.NewLoader(cmd.Flags())
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		cfg, err := loader.Load()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
+		return run(cmd, cfg)
+	}
 	return cmd
 }
 
-func run(cmd *cobra.Command, _ []string) error {
+func run(cmd *cobra.Command, config *config.Config) error {
 	slog.Info("Metrics Actioner", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
-
-	config, err := config.LoadConfig(cmd)
-	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
-	}
 
 	alertmanagerReceiver := alertmanager.NewReceiver(&config.Actions)
 
 	slog.Info("Starting HTTP server")
 	server := server.NewServer(&config.HTTP, alertmanagerReceiver)
-	err = server.Start()
+	err := server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}

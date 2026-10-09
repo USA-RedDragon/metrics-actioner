@@ -1,243 +1,68 @@
 package config
 
-import (
-	"context"
-	"fmt"
-	"os"
-	"strings"
+//go:generate go tool configulator -type Config
 
-	"github.com/ghodss/yaml"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-)
-
-type HTTPListener struct {
-	IPV4Host string `json:"ipv4_host"`
-	IPV6Host string `json:"ipv6_host"`
-	Port     uint16 `json:"port"`
-}
-
+// Tracing configures OpenTelemetry tracing of HTTP requests.
 type Tracing struct {
-	Enabled      bool   `json:"enabled"`
-	OTLPEndpoint string `json:"otlp_endpoint"`
+	Enabled      bool   `name:"enabled" default:"false" description:"Enable OpenTelemetry tracing"`
+	OTLPEndpoint string `name:"otlp_endpoint" description:"OpenTelemetry OTLP endpoint"`
 }
 
+// PProf configures the pprof endpoints.
 type PProf struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `name:"enabled" default:"false" description:"Enable pprof on the HTTP server"`
 }
 
+// Metrics configures the Prometheus metrics server.
 type Metrics struct {
-	HTTPListener
-	Enabled bool `json:"enabled"`
+	IPV4Host string `name:"ipv4_host" default:"127.0.0.1" description:"Metrics server IPv4 host"`
+	IPV6Host string `name:"ipv6_host" default:"::1" description:"Metrics server IPv6 host"`
+	Port     uint16 `name:"port" default:"8081" description:"Metrics server port"`
+	Enabled  bool   `name:"enabled" default:"false" description:"Enable the metrics server"`
 }
 
+// HTTP configures the HTTP server that receives AlertManager webhooks.
 type HTTP struct {
-	HTTPListener
-	Tracing
-	PProf          PProf    `json:"pprof"`
-	TrustedProxies []string `json:"trusted_proxies"`
-	Metrics        Metrics  `json:"metrics"`
+	IPV4Host       string   `name:"ipv4_host" default:"0.0.0.0" description:"HTTP server IPv4 host"`
+	IPV6Host       string   `name:"ipv6_host" default:"::" description:"HTTP server IPv6 host"`
+	Port           uint16   `name:"port" default:"8080" description:"HTTP server port"`
+	Tracing        Tracing  `name:"tracing"`
+	PProf          PProf    `name:"pprof"`
+	TrustedProxies []string `name:"trusted_proxies" description:"Comma-separated list of trusted proxy IPs or CIDRs"`
+	Metrics        Metrics  `name:"metrics"`
+
+	LegacyTracingEnabled      bool   `name:"enabled" flag:"-" env:"-" description:"Deprecated alias of http.tracing.enabled"`
+	LegacyTracingOTLPEndpoint string `name:"otlp_endpoint" flag:"-" env:"-" description:"Deprecated alias of http.tracing.otlp_endpoint"`
 }
 
+// Labels are label names and values that must all match.
 type Labels map[string]string
+
+// Options are the options passed to an action.
 type Options map[string]string
 
+// Action is a rule that runs an action when an AlertManager webhook matches it.
 type Action struct {
-	MatchCommonLabels Labels  `json:"match_common_labels"`
-	MatchGroupLabels  Labels  `json:"match_group_labels"`
-	Action            string  `json:"action"`
-	Options           Options `json:"options"`
+	MatchCommonLabels Labels  `name:"match_common_labels" description:"Labels that must all match the webhook's common labels"`
+	MatchGroupLabels  Labels  `name:"match_group_labels" description:"Labels that must all match the webhook's group labels"`
+	Action            string  `name:"action" description:"Action to run: rollout-restart-deployment (kubectl rollout restart) or ssh (run a command over SSH)"`
+	Options           Options `name:"options" description:"Options for the action, all strings. rollout-restart-deployment: deployment (required), namespace (defaults to the alert's namespace common label). ssh: command, host, user, key (path to a private key file), all required; port (default 22); hostKeys (known_hosts lines for the host, or ignore to skip host key checks)"`
 }
 
 // Config is the main configuration for the application
 type Config struct {
-	HTTP    HTTP     `json:"http"`
-	Actions []Action `json:"actions"`
+	HTTP    HTTP     `name:"http"`
+	Actions []Action `name:"actions" description:"Rules that run an action when a firing AlertManager webhook matches them. Only settable in the config file."`
 }
 
-//nolint:golint,gochecknoglobals
-var (
-	ConfigFileKey          = "config"
-	HTTPIPV4HostKey        = "http.ipv4_host"
-	HTTPIPV6HostKey        = "http.ipv6_host"
-	HTTPPortKey            = "http.port"
-	HTTPTracingEnabledKey  = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey    = "http.pprof.enabled"
-	HTTPTrustedProxiesKey  = "http.trusted_proxies"
-	HTTPMetricsEnabledKey  = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey     = "http.metrics.port"
-)
-
-const (
-	DefaultHTTPIPV4Host        = "0.0.0.0"
-	DefaultHTTPIPV6Host        = "::"
-	DefaultHTTPPort            = 8080
-	DefaultHTTPMetricsIPV4Host = "127.0.0.1"
-	DefaultHTTPMetricsIPV6Host = "::1"
-	DefaultHTTPMetricsPort     = 8081
-)
-
-func RegisterFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP(ConfigFileKey, "c", "", "Config file path")
-	cmd.Flags().String(HTTPIPV4HostKey, DefaultHTTPIPV4Host, "HTTP server IPv4 host")
-	cmd.Flags().String(HTTPIPV6HostKey, DefaultHTTPIPV6Host, "HTTP server IPv6 host")
-	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
-	cmd.Flags().Bool(HTTPTracingEnabledKey, false, "Enable Open Telemetry tracing")
-	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
-	cmd.Flags().Bool(HTTPPProfEnabledKey, false, "Enable pprof")
-	cmd.Flags().StringSlice(HTTPTrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
-	cmd.Flags().Bool(HTTPMetricsEnabledKey, false, "Enable metrics server")
-	cmd.Flags().String(HTTPMetricsIPV4HostKey, DefaultHTTPMetricsIPV4Host, "Metrics server IPv4 host")
-	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
-	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
-}
-
+// Validate checks the configuration and folds the deprecated tracing keys
+// into http.tracing.
 func (c *Config) Validate() error {
+	if c.HTTP.LegacyTracingEnabled {
+		c.HTTP.Tracing.Enabled = true
+	}
+	if c.HTTP.Tracing.OTLPEndpoint == "" {
+		c.HTTP.Tracing.OTLPEndpoint = c.HTTP.LegacyTracingOTLPEndpoint
+	}
 	return nil
-}
-
-//nolint:golint,gocyclo
-func LoadConfig(cmd *cobra.Command) (*Config, error) {
-	var config Config
-
-	// Load flags from envs
-	ctx, cancel := context.WithCancelCause(cmd.Context())
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		if ctx.Err() != nil {
-			return
-		}
-		optName := strings.ReplaceAll(strings.ToUpper(f.Name), ".", "__")
-		if val, ok := os.LookupEnv(optName); !f.Changed && ok {
-			if err := f.Value.Set(val); err != nil {
-				cancel(err)
-			}
-			f.Changed = true
-		}
-	})
-	if ctx.Err() != nil {
-		return &config, fmt.Errorf("failed to load env: %w", context.Cause(ctx))
-	}
-
-	configPath, err := cmd.Flags().GetString("config")
-	if err != nil {
-		return &config, fmt.Errorf("failed to get config path: %w", err)
-	}
-	if configPath != "" {
-		data, err := os.ReadFile(configPath)
-		if err != nil {
-			return &config, fmt.Errorf("failed to read config: %w", err)
-		}
-
-		if err := yaml.Unmarshal(data, &config); err != nil {
-			return &config, fmt.Errorf("failed to unmarshal config: %w", err)
-		}
-	}
-
-	// Flag overrides here
-	if cmd.Flags().Changed(HTTPIPV4HostKey) {
-		config.HTTP.IPV4Host, err = cmd.Flags().GetString(HTTPIPV4HostKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get HTTP IPv4 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPIPV6HostKey) {
-		config.HTTP.IPV6Host, err = cmd.Flags().GetString(HTTPIPV6HostKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get HTTP IPv6 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPPortKey) {
-		config.HTTP.Port, err = cmd.Flags().GetUint16(HTTPPortKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get HTTP port: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPPProfEnabledKey) {
-		config.HTTP.PProf.Enabled, err = cmd.Flags().GetBool(HTTPPProfEnabledKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get pprof enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTrustedProxiesKey) {
-		config.HTTP.TrustedProxies, err = cmd.Flags().GetStringSlice(HTTPTrustedProxiesKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get trusted proxies: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsEnabledKey) {
-		config.HTTP.Metrics.Enabled, err = cmd.Flags().GetBool(HTTPMetricsEnabledKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get metrics enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsIPV4HostKey) {
-		config.HTTP.Metrics.IPV4Host, err = cmd.Flags().GetString(HTTPMetricsIPV4HostKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get metrics IPv4 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsIPV6HostKey) {
-		config.HTTP.Metrics.IPV6Host, err = cmd.Flags().GetString(HTTPMetricsIPV6HostKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get metrics IPv6 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsPortKey) {
-		config.HTTP.Metrics.Port, err = cmd.Flags().GetUint16(HTTPMetricsPortKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get metrics port: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTracingEnabledKey) {
-		config.HTTP.Tracing.Enabled, err = cmd.Flags().GetBool(HTTPTracingEnabledKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get tracing enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTracingOTLPEndKey) {
-		config.HTTP.Tracing.OTLPEndpoint, err = cmd.Flags().GetString(HTTPTracingOTLPEndKey)
-		if err != nil {
-			return &config, fmt.Errorf("failed to get tracing OTLP endpoint: %w", err)
-		}
-	}
-
-	// Defaults
-	if config.HTTP.IPV4Host == "" {
-		config.HTTP.IPV4Host = DefaultHTTPIPV4Host
-	}
-	if config.HTTP.IPV6Host == "" {
-		config.HTTP.IPV6Host = DefaultHTTPIPV6Host
-	}
-	if config.HTTP.Port == 0 {
-		config.HTTP.Port = DefaultHTTPPort
-	}
-	if config.HTTP.Metrics.IPV4Host == "" {
-		config.HTTP.Metrics.IPV4Host = DefaultHTTPMetricsIPV4Host
-	}
-	if config.HTTP.Metrics.IPV6Host == "" {
-		config.HTTP.Metrics.IPV6Host = DefaultHTTPMetricsIPV6Host
-	}
-	if config.HTTP.Metrics.Port == 0 {
-		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
-	}
-
-	err = config.Validate()
-	if err != nil {
-		return &config, fmt.Errorf("failed to validate config: %w", err)
-	}
-
-	return &config, nil
 }

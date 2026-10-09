@@ -1,0 +1,38 @@
+http:
+  ipv4_host: 10.0.0.1
+  ipv6_host: fd00::1
+  port: 9080
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 192.168.1.1
+  tracing:
+    enabled: true
+    otlp_endpoint: otel-collector:4317
+  pprof:
+    enabled: true
+  metrics:
+    enabled: true
+    ipv4_host: 0.0.0.0
+    ipv6_host: '::'
+    port: 9081
+actions:
+- match_common_labels:
+    remediation: restart-trunk-recorder
+  match_group_labels:
+    namespace: trunk-recorder
+  action: rollout-restart-deployment
+  options:
+    deployment: trunk-recorder-app
+    namespace: trunk-recorder
+- match_common_labels:
+    alertname: TargetDown
+    job: aredn-manager
+  action: ssh
+  options:
+    command: 'docker restart tunnel'
+    host: 'host.example.com'
+    port: '333'
+    user: 'admin'
+    key: '/secrets/admin.pem'
+    hostKeys: |
+      [host.example.com]:333 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAID8Dy1TZ1lN8WAZcgdODY9SNVWqWB+hGfsVEzMaUV7n+
