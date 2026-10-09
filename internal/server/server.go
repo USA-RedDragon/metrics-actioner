@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager"
@@ -90,70 +89,55 @@ func NewServer(config *config.HTTP, receiver *alertmanager.Receiver) *Server {
 }
 
 func (s *Server) Start() error {
-	waitGrp := sync.WaitGroup{}
-	if s.ipv4Server != nil {
-		ipv4Listener, err := net.Listen("tcp4", s.ipv4Server.Addr)
-		if err != nil {
-			return err
-		}
-		waitGrp.Add(1)
-		go func() {
-			defer waitGrp.Done()
-			if err := s.ipv4Server.Serve(ipv4Listener); err != nil && !s.stopped {
-				slog.Error("HTTP IPv4 server error", "error", err.Error())
-			}
-		}()
+	type serve struct {
+		name     string
+		network  string
+		server   *http.Server
+		listener net.Listener
 	}
-
-	if s.ipv6Server != nil {
-		ipv6Listener, err := net.Listen("tcp6", s.ipv6Server.Addr)
-		if err != nil {
-			return err
-		}
-		waitGrp.Add(1)
-		go func() {
-			defer waitGrp.Done()
-			if err := s.ipv6Server.Serve(ipv6Listener); err != nil && !s.stopped {
-				slog.Error("HTTP IPv6 server error", "error", err.Error())
-			}
-		}()
+	serves := []serve{
+		{name: "HTTP IPv4", network: "tcp4", server: s.ipv4Server},
+		{name: "HTTP IPv6", network: "tcp6", server: s.ipv6Server},
 	}
-	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
-
 	if s.config.Metrics.Enabled {
-		if s.metricsIPV4Server != nil {
-			metricsIPV4Listener, err := net.Listen("tcp4", s.metricsIPV4Server.Addr)
-			if err != nil {
-				return err
-			}
-			waitGrp.Add(1)
-			go func() {
-				defer waitGrp.Done()
-				if err := s.metricsIPV4Server.Serve(metricsIPV4Listener); err != nil && !s.stopped {
-					slog.Error("Metrics IPv4 server error", "error", err.Error())
-				}
-			}()
-		}
+		serves = append(serves,
+			serve{name: "Metrics IPv4", network: "tcp4", server: s.metricsIPV4Server},
+			serve{name: "Metrics IPv6", network: "tcp6", server: s.metricsIPV6Server},
+		)
+	}
 
-		if s.metricsIPV6Server != nil {
-			metricsIPV6Listener, err := net.Listen("tcp6", s.metricsIPV6Server.Addr)
-			if err != nil {
-				return err
-			}
-			waitGrp.Add(1)
-			go func() {
-				defer waitGrp.Done()
-				if err := s.metricsIPV6Server.Serve(metricsIPV6Listener); err != nil && !s.stopped {
-					slog.Error("Metrics IPv6 server error", "error", err.Error())
-				}
-			}()
+	var lc net.ListenConfig
+	for i := range serves {
+		if serves[i].server == nil {
+			continue
 		}
+		l, err := lc.Listen(context.Background(), serves[i].network, serves[i].server.Addr)
+		if err != nil {
+			for _, opened := range serves[:i] {
+				if opened.listener != nil {
+					_ = opened.listener.Close()
+				}
+			}
+			return err
+		}
+		serves[i].listener = l
+	}
+
+	for _, sv := range serves {
+		if sv.listener == nil {
+			continue
+		}
+		go func() {
+			if err := sv.server.Serve(sv.listener); err != nil && !s.stopped {
+				slog.Error(sv.name+" server error", "error", err.Error())
+			}
+		}()
+	}
+
+	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
+	if s.config.Metrics.Enabled {
 		slog.Info("Metrics server started", "ipv4", s.config.Metrics.IPV4Host, "ipv6", s.config.Metrics.IPV6Host, "port", s.config.Metrics.Port)
 	}
-
-	go func() {
-		waitGrp.Wait()
-	}()
 	return nil
 }
 
