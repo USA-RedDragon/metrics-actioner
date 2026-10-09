@@ -18,6 +18,8 @@ const (
 	SSHOptionHostKeyIgnore SSHOptionHostKey = "ignore"
 )
 
+const defaultSSHPort = 22
+
 type SSH struct {
 }
 
@@ -30,9 +32,9 @@ type SSHOptions struct {
 	HostKeys SSHOptionHostKey
 }
 
-func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error {
-	slog.Info("SSH action executed")
-	var opts SSHOptions
+// ParseSSHOptions reads and checks the ssh action's options.
+func ParseSSHOptions(options map[string]string) (SSHOptions, error) {
+	opts := SSHOptions{Port: defaultSSHPort}
 
 	// Get the options
 	for k, v := range options {
@@ -43,13 +45,13 @@ func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error 
 			opts.Host = v
 		case "port":
 			if v == "" {
-				v = "22"
+				continue
 			}
-			intPort, err := strconv.Atoi(v)
-			if err != nil {
-				return fmt.Errorf("invalid port option: %s", v)
+			port, err := strconv.ParseUint(v, 10, 16)
+			if err != nil || port == 0 {
+				return opts, fmt.Errorf("invalid port option: %s", v)
 			}
-			opts.Port = uint16(intPort)
+			opts.Port = uint16(port)
 		case "user":
 			opts.User = v
 		case "key":
@@ -62,16 +64,25 @@ func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error 
 	}
 	// Validate the options
 	if opts.Command == "" {
-		return fmt.Errorf("missing command option")
+		return opts, fmt.Errorf("missing command option")
 	}
 	if opts.Host == "" {
-		return fmt.Errorf("missing host option")
+		return opts, fmt.Errorf("missing host option")
 	}
 	if opts.User == "" {
-		return fmt.Errorf("missing user option")
+		return opts, fmt.Errorf("missing user option")
 	}
 	if opts.Key == "" {
-		return fmt.Errorf("missing key option")
+		return opts, fmt.Errorf("missing key option")
+	}
+	return opts, nil
+}
+
+func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error {
+	slog.Info("SSH action executed")
+	opts, err := ParseSSHOptions(options)
+	if err != nil {
+		return err
 	}
 	// Check if key points to a file with a private key
 	pemBytes, err := os.ReadFile(opts.Key)
