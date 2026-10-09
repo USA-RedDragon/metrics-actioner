@@ -1,12 +1,14 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
 	"golang.org/x/crypto/ssh"
@@ -18,9 +20,15 @@ const (
 	SSHOptionHostKeyIgnore SSHOptionHostKey = "ignore"
 )
 
-const defaultSSHPort = 22
+const (
+	defaultSSHPort           = 22
+	defaultSSHConnectTimeout = 30 * time.Second
+)
 
 type SSH struct {
+	// ConnectTimeout bounds the TCP connect and SSH handshake. Zero means
+	// defaultSSHConnectTimeout.
+	ConnectTimeout time.Duration
 }
 
 type SSHOptions struct {
@@ -78,7 +86,7 @@ func ParseSSHOptions(options map[string]string) (SSHOptions, error) {
 	return opts, nil
 }
 
-func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error {
+func (s *SSH) Execute(ctx context.Context, webhook *models.Webhook, options map[string]string) error {
 	slog.Info("SSH action executed")
 	opts, err := ParseSSHOptions(options)
 	if err != nil {
@@ -94,10 +102,10 @@ func (s *SSH) Execute(webhook *models.Webhook, options map[string]string) error 
 		return fmt.Errorf("error parsing key: %w", err)
 	}
 
-	return s.runCommand(opts, signer)
+	return s.runCommand(ctx, opts, signer)
 }
 
-func (s *SSH) runCommand(opts SSHOptions, key ssh.Signer) error {
+func (s *SSH) runCommand(ctx context.Context, opts SSHOptions, key ssh.Signer) error {
 	slog.Info("Running command", "command", opts.Command, "host", opts.Host, "port", opts.Port, "user", opts.User)
 
 	var hostkeyCallback ssh.HostKeyCallback
@@ -130,11 +138,13 @@ func (s *SSH) runCommand(opts SSHOptions, key ssh.Signer) error {
 		},
 	}
 
-	conn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", opts.Host, opts.Port), conf)
+	conn, err := s.dial(ctx, net.JoinHostPort(opts.Host, strconv.Itoa(int(opts.Port))), conf)
 	if err != nil {
 		return fmt.Errorf("error dialing: %w", err)
 	}
 	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
 
 	session, err := conn.NewSession()
 	if err != nil {
@@ -147,11 +157,53 @@ func (s *SSH) runCommand(opts SSHOptions, key ssh.Signer) error {
 	session.Stderr = &stdToSlogErrWriter{}
 
 	err = session.Run(opts.Command)
+	if ctx.Err() != nil {
+		return fmt.Errorf("error running command: %w", context.Cause(ctx))
+	}
 	if err != nil {
 		return fmt.Errorf("error running command: %w", err)
 	}
 
 	return nil
+}
+
+// dial connects and completes the SSH handshake within ConnectTimeout,
+// stopping early if ctx ends.
+func (s *SSH) dial(ctx context.Context, addr string, conf *ssh.ClientConfig) (*ssh.Client, error) {
+	timeout := s.ConnectTimeout
+	if timeout == 0 {
+		timeout = defaultSSHConnectTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	deadline, _ := ctx.Deadline()
+	if err := conn.SetDeadline(deadline); err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	c, chans, reqs, err := ssh.NewClientConn(conn, addr, conf)
+	if !stop() {
+		if err == nil {
+			_ = c.Close()
+		}
+		return nil, context.Cause(ctx)
+	}
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		_ = c.Close()
+		return nil, err
+	}
+	return ssh.NewClient(c, chans, reqs), nil
 }
 
 type stdToSlogInfoWriter struct {

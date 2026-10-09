@@ -23,7 +23,7 @@ type RolloutRestartDeploymentOptions struct {
 	Deployment string
 }
 
-func (r *RolloutRestartDeployment) Execute(webhook *models.Webhook, options map[string]string) error {
+func (r *RolloutRestartDeployment) Execute(ctx context.Context, webhook *models.Webhook, options map[string]string) error {
 	slog.Info("RolloutRestartDeployment action executed")
 	var opts RolloutRestartDeploymentOptions
 	// Get the options
@@ -50,10 +50,10 @@ func (r *RolloutRestartDeployment) Execute(webhook *models.Webhook, options map[
 		}
 	}
 
-	return r.restart(opts)
+	return r.restart(ctx, opts)
 }
 
-func (r *RolloutRestartDeployment) restart(opts RolloutRestartDeploymentOptions) error {
+func (r *RolloutRestartDeployment) restart(ctx context.Context, opts RolloutRestartDeploymentOptions) error {
 	// Now we essentially run `kubectl -n <namespace> rollout restart deployment <deployment>`
 	slog.Info("Restarting deployment", "namespace", opts.Namespace, "deployment", opts.Deployment)
 
@@ -70,7 +70,7 @@ func (r *RolloutRestartDeployment) restart(opts RolloutRestartDeploymentOptions)
 
 	deploymentsClient := clientset.AppsV1().Deployments(opts.Namespace)
 	data := fmt.Sprintf(`{"spec": {"template": {"metadata": {"annotations": {"kubectl.kubernetes.io/restartedAt": "%s"}}}}}`, time.Now().Format("20060102150405"))
-	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	_, err = deploymentsClient.Patch(ctx, opts.Deployment, types.StrategicMergePatchType, []byte(data), v1.PatchOptions{})
 	if err != nil {

@@ -1,6 +1,7 @@
 package alertmanager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/actions"
@@ -9,7 +10,7 @@ import (
 )
 
 type ActionIface interface {
-	Execute(webhook *models.Webhook, options map[string]string) error
+	Execute(ctx context.Context, webhook *models.Webhook, options map[string]string) error
 }
 
 func (r *Receiver) FindAction(action string) (ActionIface, error) {

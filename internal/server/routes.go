@@ -35,7 +35,7 @@ func v1ReceiveWebhook(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := receiver.ReceiveWebhook(&json); err != nil {
+	if err := receiver.ReceiveWebhook(c.Request.Context(), &json); err != nil {
 		slog.Error("Failed to process AlertManager webhook", "error", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

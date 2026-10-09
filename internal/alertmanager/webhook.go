@@ -1,6 +1,7 @@
 package alertmanager
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/USA-RedDragon/metrics-actioner/internal/alertmanager/models"
@@ -28,7 +29,7 @@ func matchLabels(webhookLabels models.Labels, ruleLabels config.Labels) bool {
 	return true
 }
 
-func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
+func (r *Receiver) ReceiveWebhook(ctx context.Context, webhook *models.Webhook) error {
 	// Print the json to the console
 	slog.Info("Received AlertManager webhook")
 
@@ -58,7 +59,7 @@ func (r *Receiver) ReceiveWebhook(webhook *models.Webhook) error {
 		if err != nil {
 			return err
 		}
-		err = action.Execute(webhook, alertRule.Options)
+		err = action.Execute(ctx, webhook, alertRule.Options)
 		if err != nil {
 			return err
 		}
